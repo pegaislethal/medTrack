@@ -3,8 +3,8 @@ const User = require("../models/user.model");
 
 const currentUser = async (req, res) => {
   try {
-    const userId = req.userId; // This comes from the auth middleware
-    const user = await User.findById(userId).select('-password -otp');
+    const userId = req.userId;
+    const user = await User.findById(userId).select("-password -otp");
 
     if (!user) {
       return res.status(StatusCodes.NOT_FOUND).json({
@@ -19,8 +19,8 @@ const currentUser = async (req, res) => {
         id: user._id,
         fullname: user.fullname,
         email: user.email,
-        profilePicture: user.profilePicture || {}
-      }
+        profilePicture: user.profilePicture || {},
+      },
     });
   } catch (error) {
     console.error("Error fetching current user:", error);
@@ -32,5 +32,5 @@ const currentUser = async (req, res) => {
 };
 
 module.exports = {
-  currentUser
+  currentUser,
 };

@@ -1,6 +1,6 @@
-
-
 const express = require("express");
+const router = express.Router();
+
 const {
   registerUser,
   loginUser,
@@ -10,55 +10,34 @@ const {
   requestPasswordReset,
   resetPassword,
 } = require("../controller/user.controller");
+
+const { authenticate } = require("../middlewares/auth.middleware");
 const { validate } = require("../middlewares/validation.middleware");
 const { signupSchema } = require("../validations/ZodValidation.user");
-const authenticateUser = require("../middlewares/auth.middleware");
 const { currentUser } = require("../controller/decodeToken.controller");
 
-const router = express.Router();
+// Register User
+router.post("/register", validate(signupSchema), registerUser);
 
-router.post(
-  "/register",
-  validate(signupSchema),
-  registerUser
-);
+// Login User
+router.post("/login", loginUser);
 
-router.post(
-  "/login",
-  loginUser
-);
+// OTP Verification
+router.post("/verify-otp", verifyOTPUser);
 
-router.post(
-  "/verify-otp",
-  verifyOTPUser
-);
+// Verify Login OTP
+router.post("/verify-login-otp", verifyLoginOTP);
 
-router.post(
-  "/verify-login-otp",
-  verifyLoginOTP
-);
+// Get all users (Admin only)
+router.get("/", authenticate, getAllUser);
 
-router.get(
-  "/",
-  authenticateUser,
-  getAllUser
-);
+// Current logged-in user
+router.get("/me", authenticate, currentUser);
 
-// Get current user endpoint
-router.get(
-  "/me",
-  authenticateUser,
-  currentUser
-);
+// Forgot password
+router.post("/password-reset/request", requestPasswordReset);
 
-router.post(
-  "/password-reset/request",
-  requestPasswordReset
-);  
-
-router.post(
-  "/password-reset/reset",
-  resetPassword
-);  
+// Reset password
+router.post("/password-reset/reset", resetPassword);
 
 module.exports = router;

@@ -17,7 +17,7 @@ const getTemplate = (otp, username, greeting, message, note) => `
   <div style="${baseStyles}">
     <div style="${cardStyles}">
       <div style="text-align: center;">
-        <img src="cid:financefusionlogo" alt="Finance Fusion Logo" style="width: 120px; margin-bottom: 20px;" />
+        <img src="cid:financefusionlogo" alt="MedTrack Logo" style="width: 120px; margin-bottom: 20px;" />
       </div>
       <h2 style="text-align: center;">${greeting}, ${username}!</h2>
       <p style="font-size: 16px; color: #555; text-align: center;">${message}</p>
@@ -32,32 +32,35 @@ const getTemplate = (otp, username, greeting, message, note) => `
   </div>
 `;
 
-const verify_account_boilerplate = (otp, username) => getTemplate(
-  otp,
-  username,
-  "Welcome",
-  "Thank you for registering with FinanceFusion. Please verify your account using the OTP below:",
-  "This OTP is valid for 5 minutes. If you did not request this, please ignore this email."
-);
+const verify_account_boilerplate = (otp, username) =>
+  getTemplate(
+    otp,
+    username,
+    "Welcome",
+    "Thank you for registering with MedTrack. Please verify your account using the OTP below:",
+    "This OTP is valid for 5 minutes. If you did not request this, please ignore this email."
+  );
 
-const reset_password_boilerplate = (otp, username) => getTemplate(
-  otp,
-  username,
-  "Hello",
-  "We received a request to reset your password. Use the OTP below to proceed:",
-  "This OTP is valid for 5 minutes. If you did not request this, please ignore this email."
-);
+const reset_password_boilerplate = (otp, username) =>
+  getTemplate(
+    otp,
+    username,
+    "Hello",
+    "We received a request to reset your password. Use the OTP below to proceed:",
+    "This OTP is valid for 5 minutes. If you did not request this, please ignore this email."
+  );
 
-const verify_login_boilerplate = (otp, username) => getTemplate(
-  otp,
-  username,
-  "Welcome back",
-  "Use the OTP below to complete your login:",
-  "This OTP is valid for 5 minutes. If you did not attempt to log in, please secure your account."
-);
+const verify_login_boilerplate = (otp, username) =>
+  getTemplate(
+    otp,
+    username,
+    "Welcome back",
+    "Use the OTP below to complete your login:",
+    "This OTP is valid for 5 minutes. If you did not attempt to log in, please secure your account."
+  );
 
 module.exports = {
   verify_account_boilerplate,
   reset_password_boilerplate,
-  verify_login_boilerplate
+  verify_login_boilerplate,
 };

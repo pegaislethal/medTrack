@@ -1,14 +1,19 @@
-const router = require("express").Router();
+const express = require("express");
+const router = express.Router();
 
-const  userRoutes  = require("./user.route");
-const authenticateUser = require("../middlewares/auth.middleware");
+const userRoutes = require("./user.route");
+const adminRoutes = require("./admin.route");
+const medicineRoutes = require("./medicine.route");
 
+const { authenticate } = require("../middlewares/auth.middleware");
 const { currentUser } = require("../controller/decodeToken.controller");
-// const  medicineRoutes  = require("./medicine.route");
 
+// MAIN ROUTES
 router.use("/users", userRoutes);
+router.use("/admin", adminRoutes);
+router.use("/medicines", medicineRoutes);
 
-// router.use("/medicines", medicineRoutes);
-router.get("/current-user", authenticateUser, currentUser);
+// Get logged-in user
+router.get("/current-user", authenticate, currentUser);
 
-module.exports =  router ;
+module.exports = router;

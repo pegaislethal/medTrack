@@ -1,43 +1,68 @@
 const jwt = require("jsonwebtoken");
-const User = require("../models/user.model");
-const { StatusCodes } = require("http-status-codes");
+const Admin = require("../models/admin.model");
 
-async function authenticateUser(req, res, next) {
-  let token = req.headers["authorization"];
-
-  if (!token) {
-    return res
-      .status(StatusCodes.UNAUTHORIZED)
-      .json({ error: "Token not provided" });
+// Authentication middleware
+const authenticate = (req, res, next) => {
+  const authHeader = req.header("Authorization");
+  if (!authHeader) {
+    return res.status(401).json({ success: false, message: "Access denied. No token provided." });
   }
 
-  token = token.substring(7); // Remove 'Bearer ' prefix
-
+  const token = authHeader.replace("Bearer ", "");
   try {
-    const data = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = data.userId;
-
-    const user = await User.findById(req.userId);
-    if (!user) {
-      return res
-        .status(StatusCodes.UNAUTHORIZED)
-        .json({ error: "User not found" });
-    }
-
-    req.user = {
-      id: user._id,
-      permissions: user.permissions,
-      role: user.role,
-      fullname: user.fullname,
-      email: user.email,
-    };
-
-    req.decodedToken = data;
-
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    // Also set req.userId for backward compatibility
+    req.userId = decoded.userId || decoded.id;
     next();
   } catch (err) {
-    return res.status(StatusCodes.FORBIDDEN).json({ error: "Invalid token" });
+    res.status(400).json({ success: false, message: "Invalid token." });
   }
-}
+};
 
-module.exports = authenticateUser;
+// Authorization middleware for admin access
+const authAdmin = (permissions) => {
+  return async (req, res, next) => {
+    try {
+      // Check if user is authenticated and has userId
+      if (!req.user || (!req.user.userId && !req.user.id)) {
+        return res.status(401).json({ success: false, message: "Unauthorized access." });
+      }
+
+      // Get userId from token (could be userId or id)
+      const userId = req.user.userId || req.user.id;
+
+      // First check if role is in token (faster check)
+      if (req.user.role && hasPermission(req.user.role, permissions)) {
+        // Verify admin exists in database
+        const admin = await Admin.findById(userId);
+        if (!admin) {
+          return res.status(403).json({ success: false, message: "Admin not found." });
+        }
+        return next();
+      }
+
+      // If no role in token, check database
+      const admin = await Admin.findById(userId);
+      if (!admin) {
+        return res.status(403).json({ success: false, message: "Admin not found. Access denied." });
+      }
+
+      if (hasPermission(admin.role, permissions)) {
+        return next();  // Proceed if permission check passes
+      } else {
+        return res.status(403).json({ success: false, message: "Insufficient privileges." });
+      }
+
+    } catch (err) {
+      console.error("Error in authAdmin middleware:", err); // Log the error for debugging
+      return res.status(500).json({ success: false, message: "Internal server error." });
+    }
+  };
+};
+
+const hasPermission = (adminRole, requiredPermissions) => {
+  return requiredPermissions.includes(adminRole);
+};
+
+module.exports = { authenticate, authAdmin };

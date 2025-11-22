@@ -1,92 +1,73 @@
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 
-// Ensure uploads directory exists with absolute path
-const uploadDir = path.join(__dirname, '../uploads');
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, "../uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Configure storage
+// Multer Storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
-    // Create a safe filename
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `profile-${uniqueSuffix}${ext}`);
-  }
+    cb(null, `medicine-${unique}${ext}`);
+  },
 });
 
-// File filter
+// File Filter (Images Only)
 const fileFilter = (req, file, cb) => {
-  // Accept images only
-  const allowedTypes = /jpeg|jpg|png|gif/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype);
+  const allowed = /jpeg|jpg|png|gif/;
+  const extOK = allowed.test(path.extname(file.originalname).toLowerCase());
+  const mimeOK = allowed.test(file.mimetype);
 
-  if (extname && mimetype) {
-    return cb(null, true);
-  }
-  cb(new Error('Only image files (jpg, jpeg, png, gif) are allowed!'), false);
+  if (extOK && mimeOK) cb(null, true);
+  else cb(new Error("Only image files (jpg, jpeg, png, gif) allowed!"));
 };
 
-// Create multer upload instance
+// Upload Handler
 const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
+  storage,
+  fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB max file size
-    files: 1 // Only allow 1 file
-  }
-}).single('profilePicture'); // Explicitly set the field name
+    fileSize: 5 * 1024 * 1024, // 5MB
+    files: 5,                  // Max 5 images
+  },
+}).array("image", 5);
 
-// Wrap multer middleware to handle errors
-const uploadMiddleware = (req, res, next) => {
-  upload(req, res, function(err) {
+// Wrapper Middleware
+const uploadMultiple = (req, res, next) => {
+  upload(req, res, function (err) {
     if (err instanceof multer.MulterError) {
-      // A Multer error occurred when uploading
-      if (err.code === 'LIMIT_FILE_SIZE') {
+      if (err.code === "LIMIT_FILE_SIZE") {
         return res.status(400).json({
           success: false,
-          message: 'File size too large. Maximum size is 5MB'
+          message: "Each image must be under 5MB.",
         });
       }
-      if (err.code === 'LIMIT_FILE_COUNT') {
+      if (err.code === "LIMIT_FILE_COUNT") {
         return res.status(400).json({
           success: false,
-          message: 'Too many files. Only one file allowed'
+          message: "Max 5 images allowed.",
         });
       }
-      return res.status(400).json({
-        success: false,
-        message: `Upload error: ${err.message}`
-      });
     } else if (err) {
-      // An unknown error occurred
       return res.status(400).json({
         success: false,
-        message: err.message
+        message: err.message,
       });
     }
 
-    // Check if file was uploaded
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'No file uploaded'
-      });
-    }
+    // Image is optional, so we don't require files
+    // If files exist, they will be available in req.files
 
-    // Add the file path to the request body for the controller to use
-    req.body.profilePicture = req.file.path;
-    
-    // Everything went fine
     next();
   });
 };
 
-module.exports = uploadMiddleware; 
+module.exports = uploadMultiple;

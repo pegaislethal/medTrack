@@ -3,7 +3,7 @@ const { sendEmail } = require("./sendEmail");
 const {
   verify_account_boilerplate,
   reset_password_boilerplate,
-  verify_login_boilerplate
+  verify_login_boilerplate,
 } = require("./boilerplate.data");
 
 const generateOTP = () => {
@@ -51,5 +51,5 @@ module.exports = {
   generateOTP,
   sendVerificationEmail,
   sendPasswordResetEmail,
-  sendLoginEmail 
+  sendLoginEmail,
 };
