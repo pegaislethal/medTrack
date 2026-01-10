@@ -3,18 +3,22 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { loginUser, verifyLoginOTP } from "@/lib/api/auth/auth.service";
-import { validateLogin, validateOTP } from "@/lib/utils/validation";
+import { registerAdmin, verifyAdminOTP } from "@/lib/api/admin";
 import { isAuthenticated, getUser } from "@/lib/utils/token";
 
-export default function LoginPage() {
+export default function AdminSignupPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
   const [otp, setOtp] = useState("");
-  const [step, setStep] = useState<"login" | "otp">("login");
+  const [step, setStep] = useState<"register" | "otp">("register");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   // Redirect if already logged in
   useEffect(() => {
@@ -24,34 +28,47 @@ export default function LoginPage() {
       if (user && user.role === "admin") {
         router.push("/admin/dashboard");
       } else {
+        // Regular user logged in, redirect to user dashboard
         router.push("/dashboard");
       }
     }
   }, [router]);
 
-  const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleChange = (field: keyof typeof form) => (value: string) =>
+    setForm((prev) => ({ ...prev, [field]: value }));
+
+  const handleRegister = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
+    setSuccess("");
 
-    // Frontend validation before API call
-    const validation = validateLogin(email.trim(), password);
-    if (!validation.valid) {
-      setError(validation.error || "Please check your input");
+    if (form.password !== form.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    if (form.password.length < 6) {
+      setError("Password must be at least 6 characters long.");
       return;
     }
 
     setLoading(true);
 
     try {
-      const response = await loginUser({ email: email.trim(), password });
-      
+      const response = await registerAdmin({
+        fullname: form.name,
+        email: form.email,
+        password: form.password,
+      });
+
       if (response.status === "otp_required") {
         setStep("otp");
+        setSuccess("OTP sent to your email. Please verify to complete registration.");
       } else {
-        setError(response.message || "An error occurred");
+        setError(response.message || "Registration failed");
       }
     } catch (err: any) {
-      setError(err.message || "Login failed. Please try again.");
+      setError(err.message || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -60,34 +77,16 @@ export default function LoginPage() {
   const handleVerifyOTP = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
-
-    // Frontend validation before API call
-    const validation = validateOTP(otp);
-    if (!validation.valid) {
-      setError(validation.error || "Please enter a valid OTP");
-      return;
-    }
-
     setLoading(true);
 
     try {
-      const response = await verifyLoginOTP({ email: email.trim(), otp });
-      
-      if (response.status === "success" && response.token) {
-        // Token is automatically saved in verifyLoginOTP function
-        // Verify token was saved
-        if (typeof window !== 'undefined') {
-          const savedToken = localStorage.getItem('medtrack_token');
-          if (!savedToken) {
-            console.error('Token was not saved to localStorage');
-            setError('Login successful but token storage failed. Please try again.');
-            return;
-          }
-        }
-        
-        // Redirect to user dashboard
-        router.push("/dashboard");
-        router.refresh();
+      const response = await verifyAdminOTP({ email: form.email, otp });
+
+      if (response.status === "success") {
+        setSuccess("Account verified successfully! Redirecting to login...");
+        setTimeout(() => {
+          router.push("/admin");
+        }, 2000);
       } else {
         setError(response.message || "OTP verification failed");
       }
@@ -99,10 +98,17 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-12">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-indigo-50 px-6 py-12">
       <div className="w-full max-w-xl rounded-3xl bg-white px-8 py-10 shadow-lg ring-1 ring-slate-100">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-slate-900">Login</h1>
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">
+              Create Admin Account
+            </h1>
+            <p className="mt-1 text-xs font-medium text-indigo-600 uppercase tracking-wide">
+              MedTrack Administration
+            </p>
+          </div>
           <Link
             href="/"
             className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
@@ -111,9 +117,9 @@ export default function LoginPage() {
           </Link>
         </div>
         <p className="mt-2 text-sm text-slate-600">
-          {step === "login"
-            ? "Access your MedTrack account to view records and appointments."
-            : "Enter the OTP sent to your email to complete login."}
+          {step === "register"
+            ? "Create an admin account to manage MedTrack system and users."
+            : "Enter the OTP sent to your email to verify your admin account."}
         </p>
 
         {error && (
@@ -122,11 +128,35 @@ export default function LoginPage() {
           </div>
         )}
 
-        {step === "login" ? (
-          <form onSubmit={handleLogin} className="mt-8 space-y-6">
+        {success && (
+          <div className="mt-4 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">
+            {success}
+          </div>
+        )}
+
+        {step === "register" ? (
+          <form onSubmit={handleRegister} className="mt-8 space-y-6">
+            <div className="space-y-2">
+              <label htmlFor="name" className="text-sm font-medium text-slate-800">
+                Full name
+              </label>
+              <input
+                id="name"
+                name="name"
+                type="text"
+                required
+                autoComplete="name"
+                value={form.name}
+                onChange={(e) => handleChange("name")(e.target.value)}
+                disabled={loading}
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none ring-indigo-100 transition focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                placeholder="Admin Name"
+              />
+            </div>
+
             <div className="space-y-2">
               <label htmlFor="email" className="text-sm font-medium text-slate-800">
-                Email
+                Admin Email
               </label>
               <input
                 id="email"
@@ -134,11 +164,11 @@ export default function LoginPage() {
                 type="email"
                 required
                 autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={form.email}
+                onChange={(e) => handleChange("email")(e.target.value)}
                 disabled={loading}
                 className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none ring-indigo-100 transition focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                placeholder="you@example.com"
+                placeholder="admin@medtrack.com"
               />
             </div>
 
@@ -154,12 +184,33 @@ export default function LoginPage() {
                 name="password"
                 type="password"
                 required
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                value={form.password}
+                onChange={(e) => handleChange("password")(e.target.value)}
                 disabled={loading}
                 className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none ring-indigo-100 transition focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                placeholder="Enter your password"
+                placeholder="Create a password"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor="confirmPassword"
+                className="text-sm font-medium text-slate-800"
+              >
+                Confirm password
+              </label>
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                required
+                autoComplete="new-password"
+                value={form.confirmPassword}
+                onChange={(e) => handleChange("confirmPassword")(e.target.value)}
+                disabled={loading}
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none ring-indigo-100 transition focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                placeholder="Re-enter your password"
               />
             </div>
 
@@ -168,7 +219,7 @@ export default function LoginPage() {
               disabled={loading}
               className="flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? "Creating account..." : "Create Admin Account"}
             </button>
           </form>
         ) : (
@@ -190,7 +241,7 @@ export default function LoginPage() {
                 placeholder="000000"
               />
               <p className="text-xs text-slate-500">
-                Check your email for the OTP code
+                Check your email ({form.email}) for the OTP code
               </p>
             </div>
 
@@ -205,26 +256,29 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => {
-                setStep("login");
+                setStep("register");
                 setOtp("");
                 setError("");
+                setSuccess("");
               }}
               className="w-full text-sm text-slate-600 hover:text-slate-800"
             >
-              Back to login
+              Back to registration
             </button>
           </form>
         )}
 
-        <p className="mt-6 text-center text-sm text-slate-600">
-          Don&apos;t have an account?{" "}
-          <Link
-            href="/signup"
-            className="font-semibold text-indigo-600 hover:text-indigo-500"
-          >
-            Create one
-          </Link>
-        </p>
+        <div className="mt-6 border-t border-slate-200 pt-6">
+          <p className="text-center text-sm text-slate-600">
+            Already have an admin account?{" "}
+            <Link
+              href="/admin"
+              className="font-semibold text-indigo-600 hover:text-indigo-500"
+            >
+              Sign in
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

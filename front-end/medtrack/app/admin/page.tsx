@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { loginUser, verifyLoginOTP } from "@/lib/api/auth/auth.service";
+import { loginAdmin, verifyAdminLoginOTP } from "@/lib/api/admin";
 import { validateLogin, validateOTP } from "@/lib/utils/validation";
 import { isAuthenticated, getUser } from "@/lib/utils/token";
 
-export default function LoginPage() {
+export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,6 +24,7 @@ export default function LoginPage() {
       if (user && user.role === "admin") {
         router.push("/admin/dashboard");
       } else {
+        // Regular user logged in, redirect to user dashboard
         router.push("/dashboard");
       }
     }
@@ -43,7 +44,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await loginUser({ email: email.trim(), password });
+      const response = await loginAdmin({ email: email.trim(), password });
       
       if (response.status === "otp_required") {
         setStep("otp");
@@ -71,10 +72,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await verifyLoginOTP({ email: email.trim(), otp });
+      const response = await verifyAdminLoginOTP({ email: email.trim(), otp });
       
       if (response.status === "success" && response.token) {
-        // Token is automatically saved in verifyLoginOTP function
+        // Token is automatically saved in verifyAdminLoginOTP function
         // Verify token was saved
         if (typeof window !== 'undefined') {
           const savedToken = localStorage.getItem('medtrack_token');
@@ -85,8 +86,8 @@ export default function LoginPage() {
           }
         }
         
-        // Redirect to user dashboard
-        router.push("/dashboard");
+        // Redirect to admin dashboard
+        router.push("/admin/dashboard");
         router.refresh();
       } else {
         setError(response.message || "OTP verification failed");
@@ -99,10 +100,15 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-12">
+    <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-slate-50 to-indigo-50 px-6 py-12">
       <div className="w-full max-w-xl rounded-3xl bg-white px-8 py-10 shadow-lg ring-1 ring-slate-100">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-slate-900">Login</h1>
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">Admin Login</h1>
+            <p className="mt-1 text-xs font-medium text-indigo-600 uppercase tracking-wide">
+              MedTrack Administration
+            </p>
+          </div>
           <Link
             href="/"
             className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
@@ -112,8 +118,8 @@ export default function LoginPage() {
         </div>
         <p className="mt-2 text-sm text-slate-600">
           {step === "login"
-            ? "Access your MedTrack account to view records and appointments."
-            : "Enter the OTP sent to your email to complete login."}
+            ? "Access the admin dashboard to manage users and system settings."
+            : "Enter the OTP sent to your email to complete admin login."}
         </p>
 
         {error && (
@@ -126,7 +132,7 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="mt-8 space-y-6">
             <div className="space-y-2">
               <label htmlFor="email" className="text-sm font-medium text-slate-800">
-                Email
+                Admin Email
               </label>
               <input
                 id="email"
@@ -138,7 +144,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
                 className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none ring-indigo-100 transition focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                placeholder="you@example.com"
+                placeholder="admin@medtrack.com"
               />
             </div>
 
@@ -168,7 +174,7 @@ export default function LoginPage() {
               disabled={loading}
               className="flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? "Signing in..." : "Sign in as Admin"}
             </button>
           </form>
         ) : (
@@ -216,15 +222,26 @@ export default function LoginPage() {
           </form>
         )}
 
-        <p className="mt-6 text-center text-sm text-slate-600">
-          Don&apos;t have an account?{" "}
-          <Link
-            href="/signup"
-            className="font-semibold text-indigo-600 hover:text-indigo-500"
-          >
-            Create one
-          </Link>
-        </p>
+        <div className="mt-6 border-t border-slate-200 pt-6 space-y-2">
+          <p className="text-center text-sm text-slate-600">
+            Don&apos;t have an admin account?{" "}
+            <Link
+              href="/admin/signup"
+              className="font-semibold text-indigo-600 hover:text-indigo-500"
+            >
+              Create one
+            </Link>
+          </p>
+          <p className="text-center text-sm text-slate-600">
+            Not an admin?{" "}
+            <Link
+              href="/login"
+              className="font-semibold text-indigo-600 hover:text-indigo-500"
+            >
+              User Login
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
