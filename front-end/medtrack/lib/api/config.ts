@@ -26,6 +26,11 @@ export const API_ENDPOINTS = {
   // Medicine endpoints
   MEDICINES: {
     BASE: '/medicines',
+    GET_ALL: '/medicines',
+    GET_BY_ID: '/medicines',
+    CREATE: '/medicines',
+    UPDATE: '/medicines',
+    DELETE: '/medicines',
   },
 };
 

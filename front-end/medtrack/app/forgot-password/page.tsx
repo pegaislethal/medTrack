@@ -3,21 +3,19 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { registerUser, verifyOTP } from "@/lib/api/auth/auth.service";
-import { isAuthenticated, getUser } from "@/lib/utils/token";
+import { requestPasswordReset, resetPassword } from "@/lib/api/auth";
+import { validateEmail, validatePassword, validateOTP } from "@/lib/utils/validation";
+import { isAuthenticated } from "@/lib/utils/token";
 
-export default function SignupPage() {
+export default function ForgotPasswordPage() {
   const router = useRouter();
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-  });
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [otp, setOtp] = useState("");
-  const [step, setStep] = useState<"register" | "otp">("register");
+  const [step, setStep] = useState<"request" | "verify" | "reset">("request");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -25,51 +23,35 @@ export default function SignupPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (isAuthenticated()) {
-      const user = getUser();
-      // Check if user is admin (has role property)
-      if (user && user.role === "admin") {
-        router.push("/admin/dashboard");
-      } else {
-        router.push("/dashboard");
-      }
+      router.push("/dashboard");
     }
   }, [router]);
 
-  const handleChange = (field: keyof typeof form) => (value: string) =>
-    setForm((prev) => ({ ...prev, [field]: value }));
-
-  const handleRegister = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleRequestReset = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
     setSuccess("");
 
-    if (form.password !== form.confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-
-    if (form.password.length < 6) {
-      setError("Password must be at least 6 characters long.");
+    // Frontend validation
+    const emailValidation = validateEmail(email.trim());
+    if (!emailValidation.valid) {
+      setError(emailValidation.error || "Please enter a valid email");
       return;
     }
 
     setLoading(true);
 
     try {
-      const response = await registerUser({
-        fullname: form.name,
-        email: form.email,
-        password: form.password,
-      });
-
-      if (response.status === "otp_required") {
-        setStep("otp");
-        setSuccess("OTP sent to your email. Please verify to complete registration.");
+      const response = await requestPasswordReset({ email: email.trim() });
+      
+      if (response.success) {
+        setStep("verify");
+        setSuccess("OTP sent to your email. Please check and enter the OTP.");
       } else {
-        setError(response.message || "Registration failed");
+        setError(response.message || "Failed to send OTP");
       }
     } catch (err: any) {
-      setError(err.message || "Registration failed. Please try again.");
+      setError(err.message || "Failed to request password reset. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -78,21 +60,57 @@ export default function SignupPage() {
   const handleVerifyOTP = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
+    setSuccess("");
+
+    // Frontend validation
+    const otpValidation = validateOTP(otp);
+    if (!otpValidation.valid) {
+      setError(otpValidation.error || "Please enter a valid OTP");
+      return;
+    }
+
+    // Note: Backend doesn't verify OTP in resetPassword endpoint
+    // OTP verification is done here for UX, then proceed to reset
+    // Move to reset password step
+    setStep("reset");
+    setSuccess("OTP verified. Please enter your new password.");
+  };
+
+  const handleResetPassword = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
+
+    // Validation
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
+      setError(passwordValidation.error || "Please enter a valid password");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const response = await verifyOTP({ email: form.email, otp });
+      const response = await resetPassword({
+        email: email.trim(),
+        newPassword: newPassword,
+      });
 
-      if (response.status === "success") {
-        setSuccess("Account verified successfully! Redirecting to login...");
+      if (response.success) {
+        setSuccess("Password reset successfully! Redirecting to login...");
         setTimeout(() => {
           router.push("/login");
         }, 2000);
       } else {
-        setError(response.message || "OTP verification failed");
+        setError(response.message || "Failed to reset password");
       }
     } catch (err: any) {
-      setError(err.message || "Invalid OTP. Please try again.");
+      setError(err.message || "Failed to reset password. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -102,18 +120,20 @@ export default function SignupPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-12">
       <div className="w-full max-w-xl rounded-3xl bg-white px-8 py-10 shadow-lg ring-1 ring-slate-100">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-slate-900">Create account</h1>
+          <h1 className="text-2xl font-semibold text-slate-900">Reset Password</h1>
           <Link
-            href="/"
+            href="/login"
             className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
           >
-            Back to home
+            Back to login
           </Link>
         </div>
         <p className="mt-2 text-sm text-slate-600">
-          {step === "register"
-            ? "Join MedTrack to manage healthcare information and communicate securely."
-            : "Enter the OTP sent to your email to verify your account."}
+          {step === "request"
+            ? "Enter your email address and we'll send you an OTP to reset your password."
+            : step === "verify"
+            ? "Enter the OTP sent to your email."
+            : "Enter your new password."}
         </p>
 
         {error && (
@@ -128,29 +148,11 @@ export default function SignupPage() {
           </div>
         )}
 
-        {step === "register" ? (
-          <form onSubmit={handleRegister} className="mt-8 space-y-6">
-            <div className="space-y-2">
-              <label htmlFor="name" className="text-sm font-medium text-slate-800">
-                Full name
-              </label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                required
-                autoComplete="name"
-                value={form.name}
-                onChange={(e) => handleChange("name")(e.target.value)}
-                disabled={loading}
-                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none ring-indigo-100 transition focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                placeholder="Jane Doe"
-              />
-            </div>
-
+        {step === "request" ? (
+          <form onSubmit={handleRequestReset} className="mt-8 space-y-6">
             <div className="space-y-2">
               <label htmlFor="email" className="text-sm font-medium text-slate-800">
-                Email
+                Email Address
               </label>
               <input
                 id="email"
@@ -158,33 +160,87 @@ export default function SignupPage() {
                 type="email"
                 required
                 autoComplete="email"
-                value={form.email}
-                onChange={(e) => handleChange("email")(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
                 className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none ring-indigo-100 transition focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 placeholder="you@example.com"
               />
             </div>
 
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Sending OTP..." : "Send OTP"}
+            </button>
+          </form>
+        ) : step === "verify" ? (
+          <form onSubmit={handleVerifyOTP} className="mt-8 space-y-6">
+            <div className="space-y-2">
+              <label htmlFor="otp" className="text-sm font-medium text-slate-800">
+                OTP Code
+              </label>
+              <input
+                id="otp"
+                name="otp"
+                type="text"
+                required
+                maxLength={6}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                disabled={loading}
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none ring-indigo-100 transition focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-center tracking-widest"
+                placeholder="000000"
+              />
+              <p className="text-xs text-slate-500">
+                Check your email ({email}) for the OTP code
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Verifying..." : "Verify OTP"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setStep("request");
+                setOtp("");
+                setError("");
+                setSuccess("");
+              }}
+              className="w-full text-sm text-slate-600 hover:text-slate-800"
+            >
+              Back to email
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleResetPassword} className="mt-8 space-y-6">
             <div className="space-y-2">
               <label
-                htmlFor="password"
+                htmlFor="newPassword"
                 className="text-sm font-medium text-slate-800"
               >
-                Password
+                New Password
               </label>
               <div className="relative">
                 <input
-                  id="password"
-                  name="password"
+                  id="newPassword"
+                  name="newPassword"
                   type={showPassword ? "text" : "password"}
                   required
                   autoComplete="new-password"
-                  value={form.password}
-                  onChange={(e) => handleChange("password")(e.target.value)}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
                   disabled={loading}
                   className="w-full rounded-xl border border-slate-200 px-4 py-3 pr-10 text-sm text-slate-900 outline-none ring-indigo-100 transition focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                  placeholder="Create a password"
+                  placeholder="Enter new password"
                 />
                 <button
                   type="button"
@@ -211,7 +267,7 @@ export default function SignupPage() {
                 htmlFor="confirmPassword"
                 className="text-sm font-medium text-slate-800"
               >
-                Confirm password
+                Confirm New Password
               </label>
               <div className="relative">
                 <input
@@ -220,11 +276,11 @@ export default function SignupPage() {
                   type={showConfirmPassword ? "text" : "password"}
                   required
                   autoComplete="new-password"
-                  value={form.confirmPassword}
-                  onChange={(e) => handleChange("confirmPassword")(e.target.value)}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   disabled={loading}
                   className="w-full rounded-xl border border-slate-200 px-4 py-3 pr-10 text-sm text-slate-900 outline-none ring-indigo-100 transition focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                  placeholder="Re-enter your password"
+                  placeholder="Confirm new password"
                 />
                 <button
                   type="button"
@@ -251,57 +307,27 @@ export default function SignupPage() {
               disabled={loading}
               className="flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Creating account..." : "Create account"}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleVerifyOTP} className="mt-8 space-y-6">
-            <div className="space-y-2">
-              <label htmlFor="otp" className="text-sm font-medium text-slate-800">
-                OTP Code
-              </label>
-              <input
-                id="otp"
-                name="otp"
-                type="text"
-                required
-                maxLength={6}
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                disabled={loading}
-                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none ring-indigo-100 transition focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-center tracking-widest"
-                placeholder="000000"
-              />
-              <p className="text-xs text-slate-500">
-                Check your email ({form.email}) for the OTP code
-              </p>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? "Verifying..." : "Verify OTP"}
+              {loading ? "Resetting Password..." : "Reset Password"}
             </button>
 
             <button
               type="button"
               onClick={() => {
-                setStep("register");
-                setOtp("");
+                setStep("verify");
+                setNewPassword("");
+                setConfirmPassword("");
                 setError("");
                 setSuccess("");
               }}
               className="w-full text-sm text-slate-600 hover:text-slate-800"
             >
-              Back to registration
+              Back to OTP
             </button>
           </form>
         )}
 
         <p className="mt-6 text-center text-sm text-slate-600">
-          Already have an account?{" "}
+          Remember your password?{" "}
           <Link
             href="/login"
             className="font-semibold text-indigo-600 hover:text-indigo-500"

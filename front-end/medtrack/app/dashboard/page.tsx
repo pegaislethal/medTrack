@@ -146,67 +146,14 @@ export default function UserDashboard() {
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
+          <Link
+            href="/medicines"
+            className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition cursor-pointer"
+          >
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
                 <svg
                   className="w-6 h-6 text-indigo-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                  />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Medical Records
-                </h3>
-                <p className="text-xs text-slate-600 mt-1">
-                  View your health records
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <svg
-                  className="w-6 h-6 text-green-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Appointments
-                </h3>
-                <p className="text-xs text-slate-600 mt-1">
-                  Schedule and manage appointments
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <svg
-                  className="w-6 h-6 text-purple-600"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -221,14 +168,15 @@ export default function UserDashboard() {
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-slate-900">
-                  Medications
+                  View Medicines
                 </h3>
                 <p className="text-xs text-slate-600 mt-1">
-                  Track your medications
+                  Browse all medicines
                 </p>
               </div>
             </div>
-          </div>
+          </Link>
+
         </div>
 
         {/* Recent Activity */}
@@ -246,15 +194,8 @@ export default function UserDashboard() {
           </div>
         </div>
 
-        {/* Back to Home Link */}
-        <div className="mt-6 text-center">
-          <Link
-            href="/"
-            className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-          >
-            ← Back to Home
-          </Link>
-        </div>
+ 
+        
       </main>
     </div>
   );
