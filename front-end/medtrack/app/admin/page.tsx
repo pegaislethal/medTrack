@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginAdmin, verifyAdminLoginOTP } from "@/lib/api/admin";
 import { validateLogin, validateOTP } from "@/lib/utils/validation";
-import { isAuthenticated, getUser } from "@/lib/utils/token";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -16,20 +15,6 @@ export default function AdminLoginPage() {
   const [step, setStep] = useState<"login" | "otp">("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  // Redirect if already logged in
-  useEffect(() => {
-    if (isAuthenticated()) {
-      const user = getUser();
-      // Check if user is admin (has role property)
-      if (user && user.role === "admin") {
-        router.push("/admin/dashboard");
-      } else {
-        // Regular user logged in, redirect to user dashboard
-        router.push("/dashboard");
-      }
-    }
-  }, [router]);
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
