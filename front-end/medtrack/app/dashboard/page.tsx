@@ -154,7 +154,7 @@ export default function UserDashboard() {
                     onClick={() => setActiveTab('profile')}
                   >
                     <svg
-                      className={`w-5 h-5 flex-shrink-0 transition-transform ${activeTab === 'profile' ? 'scale-110' : ''}`}
+                      className={`w-5 h-5 shrink-0 transition-transform ${activeTab === 'profile' ? 'scale-110' : ''}`}
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -185,7 +185,7 @@ export default function UserDashboard() {
                     onClick={() => setActiveTab('medicines')}
                   >
                     <svg
-                      className={`w-5 h-5 flex-shrink-0 transition-transform ${activeTab === 'medicines' ? 'scale-110' : ''}`}
+                      className={`w-5 h-5 shrink-0 transition-transform ${activeTab === 'medicines' ? 'scale-110' : ''}`}
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -215,7 +215,7 @@ export default function UserDashboard() {
                     onClick={() => setActiveTab('activity')}
                   >
                     <svg
-                      className={`w-5 h-5 flex-shrink-0 transition-transform ${activeTab === 'activity' ? 'scale-110' : ''}`}
+                      className={`w-5 h-5 shrink-0 transition-transform ${activeTab === 'activity' ? 'scale-110' : ''}`}
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -251,7 +251,7 @@ export default function UserDashboard() {
                   </h2>
                   <div className="flex flex-col md:flex-row gap-8">
                     {user.profilePicture?.url && (
-                      <div className="flex-shrink-0">
+                      <div className="shrink-0">
                         <img
                           src={user.profilePicture.url}
                           alt="Profile"
@@ -351,7 +351,7 @@ export default function UserDashboard() {
         >
             <div className="flex flex-col h-full">
               {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-gradient-to-r from-indigo-600 to-indigo-700">
+              <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-linear-to-r from-indigo-600 to-indigo-700">
                 <div>
                   <h2 className="text-2xl font-bold text-white">Your Profile</h2>
                   <p className="text-sm text-indigo-100 mt-1">Account Information</p>

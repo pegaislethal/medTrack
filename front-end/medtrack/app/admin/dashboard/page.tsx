@@ -625,7 +625,7 @@ export default function AdminDashboard() {
         >
             <div className="flex flex-col h-full">
               {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-gradient-to-r from-indigo-600 to-indigo-700">
+              <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-linear-to-r from-indigo-600 to-indigo-700">
                 <div>
                   <h2 className="text-2xl font-bold text-white">Admin Profile</h2>
                   <p className="text-sm text-indigo-100 mt-1">Account Information</p>
