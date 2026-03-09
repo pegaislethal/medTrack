@@ -49,6 +49,7 @@ export default function UserDashboard() {
   };
 
   const handleLogout = () => {
+    alert("You have been logged out.");
     logoutUser();
     router.push("/");
   };

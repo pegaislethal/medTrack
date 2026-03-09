@@ -119,6 +119,8 @@ export default function AdminDashboard() {
   const medicineStats = getMedicineStats();
 
   const handleLogout = () => {
+    alert("You have been logged out.");
+
     logoutAdmin();
     router.push("/admin");
   };

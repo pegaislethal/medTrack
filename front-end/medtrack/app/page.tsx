@@ -1,6 +1,25 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { isAuthenticated, getUser } from "@/lib/utils/token";
 
 export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isAuthenticated()) {
+      const user = getUser();
+
+      if (user?.role === "admin") {
+        router.replace("/admin/dashboard");
+      } else {
+        router.replace("/dashboard");
+      }
+    }
+  }, [router]);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-slate-50 to-indigo-50 px-6 py-10">
       <main className="w-full max-w-5xl rounded-3xl bg-white shadow-xl ring-1 ring-slate-100">
@@ -34,9 +53,9 @@ export default function Home() {
           <div className="flex flex-col gap-4 rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/70 px-8 py-10 text-indigo-900">
             <h2 className="text-xl font-semibold">What&apos;s inside</h2>
             <ul className="space-y-3 text-sm leading-6">
-              <li>• Patient dashboard for visits and prescriptions.</li>
-              <li>• Provider tools to review notes and schedule follow-ups.</li>
-              <li>• Secure messaging with care teams.</li>
+              <li>• Patient dashboard for medicine.</li>
+              <li>• Provider tools to manage medicine carts.</li>
+              <li>• Secure website with encrypted data transmission.</li>
               <li>• Quick onboarding for new users with sign-up flow.</li>
             </ul>
             <p className="text-xs text-indigo-800/70">

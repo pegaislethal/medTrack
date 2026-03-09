@@ -111,12 +111,6 @@ export default function AdminSignupPage() {
               MedTrack Administration
             </p>
           </div>
-          <Link
-            href="/"
-            className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-          >
-            Back to home
-          </Link>
         </div>
         <p className="mt-2 text-sm text-slate-600">
           {step === "register"
