@@ -15,5 +15,9 @@ router.use("/medicines", medicineRoutes);
 
 // Get logged-in user
 router.get("/current-user", authenticate, currentUser);
+router.get("/" ,(req,res)=>{
+    res.send("Backend   is running")
+}
+)
 
 module.exports = router;
