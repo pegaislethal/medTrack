@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const connectDB = require("./config/db");
 const mainRouter = require("./routes/index.route");
-const { swaggerUi, swaggerSpec } = require("./config/swagger");
+// const { swaggerUi, swaggerSpec } = require("./config/swagger");
 require("./config/cloudinary");
 const cors = require("cors");
 
