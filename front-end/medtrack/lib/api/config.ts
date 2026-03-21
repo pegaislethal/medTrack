@@ -31,6 +31,9 @@ export const API_ENDPOINTS = {
     CREATE: '/medicines',
     UPDATE: '/medicines',
     DELETE: '/medicines',
+    PURCHASE: '/medicines',
+    PURCHASE_ANALYTICS: '/medicines/analytics/purchases',
+    PURCHASE_HISTORY: '/medicines/purchases/history',
   },
 };
 

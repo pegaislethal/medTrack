@@ -4,8 +4,14 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getAllUsers, deleteUser, logoutAdmin } from "@/lib/api/admin";
-import { getAllMedicines, type Medicine } from "@/lib/api/medicine";
+import {
+  getAllMedicines,
+  getPurchaseAnalytics,
+  type Medicine,
+  type PurchaseAnalytics,
+} from "@/lib/api/medicine";
 import { getUser, isAuthenticated } from "@/lib/utils/token";
+import { getSocket } from "@/lib/socket";
 
 interface User {
   _id: string;
@@ -24,6 +30,15 @@ export default function AdminDashboard() {
   const [admin, setAdmin] = useState<any>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [purchaseAnalytics, setPurchaseAnalytics] = useState<PurchaseAnalytics>({
+    totalOrders: 0,
+    totalItemsSold: 0,
+    totalRevenue: 0,
+    topMedicines: [],
+  });
+  const [lowStockAlerts, setLowStockAlerts] = useState<
+    { medicineId: string; medicineName: string; quantity: number }[]
+  >([]);
 
   useEffect(() => {
     // Check authentication
@@ -38,7 +53,46 @@ export default function AdminDashboard() {
     // Fetch users and medicines
     fetchUsers();
     fetchMedicines();
+    fetchPurchaseAnalytics();
   }, [router]);
+
+  useEffect(() => {
+    const socket = getSocket();
+
+    const onStockUpdated = (payload: { medicineId: string; quantity: number }) => {
+      setMedicines((prev) =>
+        prev.map((med) =>
+          med._id === payload.medicineId
+            ? { ...med, quantity: payload.quantity }
+            : med
+        )
+      );
+    };
+
+    const onPurchaseCreated = () => {
+      fetchPurchaseAnalytics();
+    };
+    const onLowStock = (payload: {
+      medicineId: string;
+      medicineName: string;
+      quantity: number;
+    }) => {
+      setLowStockAlerts((prev) => {
+        const next = [payload, ...prev.filter((a) => a.medicineId !== payload.medicineId)];
+        return next.slice(0, 5);
+      });
+    };
+
+    socket.on("medicine:stockUpdated", onStockUpdated);
+    socket.on("analytics:purchaseCreated", onPurchaseCreated);
+    socket.on("medicine:lowStock", onLowStock);
+
+    return () => {
+      socket.off("medicine:stockUpdated", onStockUpdated);
+      socket.off("analytics:purchaseCreated", onPurchaseCreated);
+      socket.off("medicine:lowStock", onLowStock);
+    };
+  }, []);
 
   const fetchUsers = async () => {
     try {
@@ -68,6 +122,17 @@ export default function AdminDashboard() {
       }
     } catch (err: any) {
       console.error("Failed to fetch medicines:", err);
+    }
+  };
+
+  const fetchPurchaseAnalytics = async () => {
+    try {
+      const response = await getPurchaseAnalytics();
+      if (response.success && response.data) {
+        setPurchaseAnalytics(response.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch purchase analytics:", err);
     }
   };
 
@@ -156,6 +221,12 @@ export default function AdminDashboard() {
               >
                 Profile
               </button>
+              <Link
+                href="/purchases"
+                className="text-sm font-medium text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg hover:bg-slate-100 transition"
+              >
+                Purchases
+              </Link>
               <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">
                 {admin.role || "Admin"}
               </span>
@@ -194,8 +265,20 @@ export default function AdminDashboard() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {lowStockAlerts.length > 0 && (
+          <div className="mb-4 rounded-xl border border-orange-200 bg-orange-50 p-4">
+            <p className="text-sm font-semibold text-orange-800 mb-2">Low Stock Alerts</p>
+            <div className="space-y-1">
+              {lowStockAlerts.map((alert) => (
+                <p key={alert.medicineId} className="text-sm text-orange-700">
+                  {alert.medicineName} is low ({alert.quantity} left)
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
         {/* Action Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           {/* View Medicines Card */}
           <Link
             href="/medicines"
@@ -345,6 +428,34 @@ export default function AdminDashboard() {
               </div>
             </div>
           </Link>
+          <Link
+            href="/purchases"
+            className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 hover:shadow-md hover:border-purple-300 transition-all cursor-pointer group"
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                    <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-10v10m0-10c1.11 0 2.08.402 2.599 1M12 18c-1.11 0-2.08-.402-2.599-1" />
+                    </svg>
+                  </div>
+                  <h3 className="text-base font-semibold text-slate-900 group-hover:text-purple-600 transition-colors">
+                    Purchases
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-600 mb-3">
+                  View all purchase transactions with buyer, quantity, and revenue details.
+                </p>
+                <div className="flex items-center text-xs font-medium text-purple-600 group-hover:text-purple-700">
+                  View Purchases
+                  <svg className="w-3 h-3 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </Link>
         </div>
 
         {/* Stats Cards - Users */}
@@ -429,7 +540,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Stats Cards - Medicines */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -507,6 +618,87 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Stats Cards - Purchases */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-slate-600">Total Orders</p>
+                <p className="text-2xl font-semibold text-slate-900 mt-1">
+                  {purchaseAnalytics.totalOrders}
+                </p>
+              </div>
+              <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l2 2 4-4m5-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-slate-600">Items Sold</p>
+                <p className="text-2xl font-semibold text-slate-900 mt-1">
+                  {purchaseAnalytics.totalItemsSold}
+                </p>
+              </div>
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V7a2 2 0 00-2-2h-4m-4 0H6a2 2 0 00-2 2v6m16 0v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4m16 0H4" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-slate-600">Revenue</p>
+                <p className="text-2xl font-semibold text-slate-900 mt-1">
+                  ${purchaseAnalytics.totalRevenue.toFixed(2)}
+                </p>
+              </div>
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-10v10m0-10c1.11 0 2.08.402 2.599 1M12 18c-1.11 0-2.08-.402-2.599-1" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 mb-8">
+          <div className="px-6 py-4 border-b border-slate-200">
+            <h2 className="text-lg font-semibold text-slate-900">Top Selling Medicines</h2>
+          </div>
+          {purchaseAnalytics.topMedicines.length === 0 ? (
+            <div className="px-6 py-6 text-sm text-slate-600">No sales data yet.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Medicine</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Items Sold</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Revenue</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-slate-200">
+                  {purchaseAnalytics.topMedicines.map((item) => (
+                    <tr key={item.medicineId}>
+                      <td className="px-6 py-4 text-sm font-medium text-slate-900">{item.medicineName}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{item.totalSold}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">${item.revenue.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Users Table */}

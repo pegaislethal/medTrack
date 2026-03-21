@@ -107,6 +107,12 @@ export default function UserDashboard() {
               >
                 Medicines
               </Link>
+              <Link
+                href="/purchases"
+                className="text-sm font-medium text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg hover:bg-slate-100 transition"
+              >
+                Purchases
+              </Link>
               <button
                 onClick={handleLogout}
                 className="text-sm font-medium text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg hover:bg-slate-100 transition"
@@ -424,6 +430,18 @@ export default function UserDashboard() {
                         </svg>
                       </div>
                       <span className="font-medium text-slate-900 group-hover:text-blue-600">Dashboard</span>
+                    </Link>
+                    <Link
+                      href="/purchases"
+                      onClick={() => setIsProfileOpen(false)}
+                      className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:border-green-300 hover:bg-green-50 transition-all group"
+                    >
+                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200">
+                        <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2a4 4 0 014-4h8M5 3v18m0 0h18" />
+                        </svg>
+                      </div>
+                      <span className="font-medium text-slate-900 group-hover:text-green-600">Purchases</span>
                     </Link>
                   </div>
                 </div>

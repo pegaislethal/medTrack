@@ -3,8 +3,14 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getAllMedicines, deleteMedicine, type Medicine } from "@/lib/api/medicine";
+import {
+  getAllMedicines,
+  deleteMedicine,
+  purchaseMedicine,
+  type Medicine,
+} from "@/lib/api/medicine";
 import { isAuthenticated, getUser } from "@/lib/utils/token";
+import { getSocket } from "@/lib/socket";
 
 export default function MedicinesPage() {
   const router = useRouter();
@@ -13,6 +19,8 @@ export default function MedicinesPage() {
   const [error, setError] = useState("");
   const [user, setUser] = useState<any>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [buyingId, setBuyingId] = useState<string | null>(null);
+  const [buyQuantities, setBuyQuantities] = useState<Record<string, number>>({});
 
   useEffect(() => {
     // Check authentication
@@ -25,6 +33,26 @@ export default function MedicinesPage() {
     setUser(userData);
     fetchMedicines();
   }, [router]);
+
+  useEffect(() => {
+    const socket = getSocket();
+
+    const onStockUpdated = (payload: { medicineId: string; quantity: number }) => {
+      setMedicines((prev) =>
+        prev.map((med) =>
+          med._id === payload.medicineId
+            ? { ...med, quantity: payload.quantity }
+            : med
+        )
+      );
+    };
+
+    socket.on("medicine:stockUpdated", onStockUpdated);
+
+    return () => {
+      socket.off("medicine:stockUpdated", onStockUpdated);
+    };
+  }, []);
 
   const fetchMedicines = async () => {
     try {
@@ -65,6 +93,21 @@ export default function MedicinesPage() {
     }
   };
 
+  const handleBuy = async (medicineId: string) => {
+    try {
+      const qty = buyQuantities[medicineId] || 1;
+      setBuyingId(medicineId);
+      const response = await purchaseMedicine(medicineId, qty);
+      if (!response.success) {
+        alert(response.message || "Failed to purchase medicine");
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to purchase medicine");
+    } finally {
+      setBuyingId(null);
+    }
+  };
+
   const isAdmin = user && user.role === "admin";
 
   const formatDate = (dateString: string) => {
@@ -100,7 +143,7 @@ export default function MedicinesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50">
+    <div className="min-h-screen bg-linear-to-br from-slate-50 to-indigo-50">
       {/* Header */}
       <header className="bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
@@ -114,6 +157,14 @@ export default function MedicinesPage() {
               </p>
             </div>
             <div className="flex items-center gap-3">
+              {!isAdmin && (
+                <Link
+                  href="/purchases"
+                  className="text-sm font-medium text-indigo-600 hover:text-indigo-500 px-4 py-2 rounded-lg hover:bg-indigo-50 transition"
+                >
+                  Purchase History
+                </Link>
+              )}
               {isAdmin && (
                 <Link
                   href="/medicines/add"
@@ -185,7 +236,7 @@ export default function MedicinesPage() {
                   className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group"
                 >
                   {/* Image Section */}
-                  <div className="relative h-48 bg-gradient-to-br from-indigo-100 to-blue-100 overflow-hidden">
+                  <div className="relative h-48 bg-linear-to-br from-indigo-100 to-blue-100 overflow-hidden">
                     {medicine.image?.url ? (
                       <img
                         src={medicine.image.url}
@@ -291,31 +342,59 @@ export default function MedicinesPage() {
                       </div>
                     </div>
 
-                    {/* Admin Actions */}
-                    {isAdmin && (
-                      <button
-                        onClick={() => handleDelete(medicine._id)}
-                        disabled={deletingId === medicine._id}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {deletingId === medicine._id ? (
-                          <>
-                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Deleting...
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            Delete Medicine
-                          </>
-                        )}
-                      </button>
-                    )}
+                    <div className="space-y-2">
+                      {!isAdmin && (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs font-medium text-slate-600">Qty</label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={medicine.quantity}
+                              value={buyQuantities[medicine._id] || 1}
+                              onChange={(e) =>
+                                setBuyQuantities((prev) => ({
+                                  ...prev,
+                                  [medicine._id]: Math.max(1, Number(e.target.value) || 1),
+                                }))
+                              }
+                              className="w-24 rounded-lg border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                          <button
+                            onClick={() => handleBuy(medicine._id)}
+                            disabled={medicine.quantity <= 0 || buyingId === medicine._id}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {buyingId === medicine._id ? "Purchasing..." : "Buy Now"}
+                          </button>
+                        </>
+                      )}
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleDelete(medicine._id)}
+                          disabled={deletingId === medicine._id}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {deletingId === medicine._id ? (
+                            <>
+                              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Deleting...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Delete Medicine
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

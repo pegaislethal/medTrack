@@ -45,6 +45,66 @@ export interface MedicineResponse {
   data?: Medicine | Medicine[];
 }
 
+export interface PurchaseResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    medicine: Medicine;
+    purchase: {
+      _id: string;
+      medicine: string;
+      buyer: string;
+      quantity: number;
+      unitPrice: number;
+      totalPrice: number;
+      createdAt: string;
+    };
+  };
+}
+
+export interface PurchaseAnalytics {
+  totalOrders: number;
+  totalItemsSold: number;
+  totalRevenue: number;
+  topMedicines: Array<{
+    medicineId: string;
+    medicineName: string;
+    totalSold: number;
+    revenue: number;
+  }>;
+}
+
+export interface PurchaseAnalyticsResponse {
+  success: boolean;
+  message: string;
+  data?: PurchaseAnalytics;
+}
+
+export interface PurchaseHistoryItem {
+  _id: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  createdAt: string;
+  medicine: {
+    _id: string;
+    medicineName: string;
+    batchNumber: string;
+    price: number;
+  };
+  buyer: {
+    _id: string;
+    fullname: string;
+    email: string;
+  };
+}
+
+export interface PurchaseHistoryResponse {
+  success: boolean;
+  message: string;
+  data?: PurchaseHistoryItem[];
+}
+
 /**
  * Make API request with error handling
  */
@@ -226,5 +286,73 @@ export const deleteMedicine = async (medicineId: string): Promise<{
       headers: getAuthHeader() as HeadersInit,
     }
   );
+};
+
+/**
+ * Purchase medicine (Authenticated users)
+ */
+export const purchaseMedicine = async (
+  medicineId: string,
+  quantity: number
+): Promise<PurchaseResponse> => {
+  const token = getToken();
+
+  if (!token) {
+    throw {
+      status: "error",
+      message: "No authentication token found",
+      statusCode: 401,
+    } as ApiError & { statusCode: number };
+  }
+
+  return apiRequest<PurchaseResponse>(
+    `${API_ENDPOINTS.MEDICINES.PURCHASE}/${medicineId}/purchase`,
+    {
+      method: "POST",
+      headers: getAuthHeader() as HeadersInit,
+      body: JSON.stringify({ quantity }),
+    }
+  );
+};
+
+/**
+ * Fetch purchase analytics (Admin only)
+ */
+export const getPurchaseAnalytics =
+  async (): Promise<PurchaseAnalyticsResponse> => {
+    const token = getToken();
+
+    if (!token) {
+      throw {
+        status: "error",
+        message: "No authentication token found",
+        statusCode: 401,
+      } as ApiError & { statusCode: number };
+    }
+
+    return apiRequest<PurchaseAnalyticsResponse>(
+      API_ENDPOINTS.MEDICINES.PURCHASE_ANALYTICS,
+      {
+        method: "GET",
+        headers: getAuthHeader() as HeadersInit,
+      }
+    );
+  };
+
+export const getPurchaseHistory = async (): Promise<PurchaseHistoryResponse> => {
+  const token = getToken();
+
+  if (!token) {
+    throw {
+      status: "error",
+      message: "No authentication token found",
+      statusCode: 401,
+    } as ApiError & { statusCode: number };
+  }
+
+  return apiRequest<PurchaseHistoryResponse>(API_ENDPOINTS.MEDICINES.PURCHASE_HISTORY, {
+    method: "GET",
+    headers: getAuthHeader() as HeadersInit,
+  });
 };
 
