@@ -3,7 +3,7 @@ import { io, type Socket } from "socket.io-client";
 let socket: Socket | null = null;
 
 const getSocketBaseUrl = (): string =>
-  (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api").replace(
+  (process.env.NEXT_PUBLIC_API_URL || "https://medtrack-2t04.onrender.com/api").replace(
     /\/api$/,
     ""
   );

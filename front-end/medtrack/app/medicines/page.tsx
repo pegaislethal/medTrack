@@ -95,7 +95,16 @@ export default function MedicinesPage() {
 
   const handleBuy = async (medicineId: string) => {
     try {
-      const qty = buyQuantities[medicineId] || 1;
+      const med = medicines.find((m) => m._id === medicineId);
+      if (!med) return;
+
+      const rawQty = buyQuantities[medicineId] || 1;
+      const qty = Math.min(Math.max(1, rawQty), med.quantity);
+
+      if (rawQty !== qty) {
+        setBuyQuantities((prev) => ({ ...prev, [medicineId]: qty }));
+      }
+
       setBuyingId(medicineId);
       const response = await purchaseMedicine(medicineId, qty);
       if (!response.success) {
@@ -233,7 +242,8 @@ export default function MedicinesPage() {
               return (
                 <div
                   key={medicine._id}
-                  className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group"
+                  onClick={() => router.push(`/medicines/${medicine._id}`)}
+                  className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group cursor-pointer"
                 >
                   {/* Image Section */}
                   <div className="relative h-48 bg-linear-to-br from-indigo-100 to-blue-100 overflow-hidden">
@@ -343,10 +353,20 @@ export default function MedicinesPage() {
                     </div>
 
                     <div className="space-y-2">
+                      <Link
+                        href={`/medicines/${medicine._id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-indigo-600 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-colors"
+                      >
+                        View Details
+                      </Link>
                       {!isAdmin && (
                         <>
-                          <div className="flex items-center gap-2">
-                            <label className="text-xs font-medium text-slate-600">Qty</label>
+                          <div
+                            className="flex items-center gap-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <label className="text-xs font-semibold text-black">Qty</label>
                             <input
                               type="number"
                               min={1}
@@ -355,14 +375,20 @@ export default function MedicinesPage() {
                               onChange={(e) =>
                                 setBuyQuantities((prev) => ({
                                   ...prev,
-                                  [medicine._id]: Math.max(1, Number(e.target.value) || 1),
+                                  [medicine._id]: Math.min(
+                                    Math.max(1, Number(e.target.value) || 1),
+                                    Math.max(1, medicine.quantity)
+                                  ),
                                 }))
                               }
-                              className="w-24 rounded-lg border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              className="w-24 rounded-lg border border-slate-300 px-2 py-1 text-sm text-black font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                           </div>
                           <button
-                            onClick={() => handleBuy(medicine._id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleBuy(medicine._id);
+                            }}
                             disabled={medicine.quantity <= 0 || buyingId === medicine._id}
                             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
@@ -372,7 +398,10 @@ export default function MedicinesPage() {
                       )}
                       {isAdmin && (
                         <button
-                          onClick={() => handleDelete(medicine._id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(medicine._id);
+                          }}
                           disabled={deletingId === medicine._id}
                           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
