@@ -1,18 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser, logoutUser } from "@/lib/api/auth";
+import { getPurchaseHistory, type PurchaseHistoryItem } from "@/lib/api/medicine";
 import { getUser, isAuthenticated } from "@/lib/utils/token";
 
 export default function UserDashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("profile");
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [activityItems, setActivityItems] = useState<PurchaseHistoryItem[]>([]);
 
   useEffect(() => {
     // Check authentication
@@ -31,6 +34,11 @@ export default function UserDashboard() {
     // Fetch fresh user data from API
     fetchUserData();
   }, [router]);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab) setActiveTab(tab);
+  }, [searchParams]);
 
   const fetchUserData = async () => {
     try {
@@ -53,6 +61,54 @@ export default function UserDashboard() {
     logoutUser();
     router.push("/");
   };
+
+  const loadActivity = async () => {
+    const localKey = "medtrack_payment_activity_v1";
+    const buyerEmail = user?.email;
+
+    let localItems: PurchaseHistoryItem[] = [];
+    try {
+      const existing = JSON.parse(localStorage.getItem(localKey) || "[]") as PurchaseHistoryItem[];
+      localItems = buyerEmail ? existing.filter((x) => x?.buyer?.email === buyerEmail) : [];
+    } catch {
+      localItems = [];
+    }
+
+    try {
+      const res = await getPurchaseHistory();
+      if (res.success && res.data) {
+        // Merge API purchases with locally faked confirmations.
+        // If the same `orderId` exists, local fake activity should override the API status.
+        const keyOf = (it: PurchaseHistoryItem) => it.orderId || it._id;
+        const apiMap = new Map<string, PurchaseHistoryItem>();
+        for (const item of res.data) apiMap.set(keyOf(item), item);
+
+        for (const item of localItems) {
+          apiMap.set(keyOf(item), item);
+        }
+
+        const merged = Array.from(apiMap.values()).sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setActivityItems(merged.slice(0, 5));
+        return;
+      }
+    } catch {
+      // If the API fails, fall back to local fake activities.
+    }
+
+    const mergedLocal = [...localItems].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    setActivityItems(mergedLocal.slice(0, 5));
+  };
+
+  useEffect(() => {
+    if (!loading && user) {
+      loadActivity();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, user]);
 
   if (loading) {
     return (
@@ -317,19 +373,58 @@ export default function UserDashboard() {
                 <h2 className="text-2xl font-bold text-slate-900 mb-6">
                   Recent Activity
                 </h2>
-                <div className="text-center py-12">
-                  <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                {activityItems.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <p className="text-slate-600 text-sm font-medium">
+                      No recent activity to display
+                    </p>
+                    <p className="text-slate-500 text-xs mt-2">
+                      Your activity and records will appear here
+                    </p>
                   </div>
-                  <p className="text-slate-600 text-sm font-medium">
-                    No recent activity to display
-                  </p>
-                  <p className="text-slate-500 text-xs mt-2">
-                    Your activity and records will appear here
-                  </p>
-                </div>
+                ) : (
+                  <div className="space-y-3">
+                    {activityItems.map((item) => (
+                      <div
+                        key={item._id}
+                        className="flex items-start justify-between gap-4 rounded-xl border border-slate-200/80 bg-slate-50 p-4"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-900 truncate">
+                            {item.medicine?.medicineName || "Medicine"}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {item.quantity} x ${item.unitPrice.toFixed(2)} •{" "}
+                            {new Date(item.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-slate-900">
+                            ${item.totalPrice.toFixed(2)}
+                          </p>
+                          {item.paymentStatus && (
+                            <span
+                              className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                item.paymentStatus === "PAID"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : item.paymentStatus === "PENDING"
+                                    ? "bg-amber-100 text-amber-800"
+                                    : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              {item.paymentStatus}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -340,14 +435,39 @@ export default function UserDashboard() {
           <h2 className="text-lg font-semibold text-slate-900 mb-4">
             Recent Activity
           </h2>
-          <div className="text-center py-8">
-            <p className="text-slate-600 text-sm">
-              No recent activity to display
-            </p>
-            <p className="text-slate-500 text-xs mt-2">
-              Your activity and records will appear here
-            </p>
-          </div>
+          {activityItems.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-slate-600 text-sm">
+                No recent activity to display
+              </p>
+              <p className="text-slate-500 text-xs mt-2">
+                Your activity and records will appear here
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {activityItems.slice(0, 3).map((item) => (
+                <div
+                  key={item._id}
+                  className="flex items-start justify-between gap-4 rounded-xl border border-slate-200/80 bg-slate-50 p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 truncate">
+                      {item.medicine?.medicineName || "Medicine"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {new Date(item.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-slate-900">
+                      ${item.totalPrice.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </main>
 

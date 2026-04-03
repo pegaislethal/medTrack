@@ -35,6 +35,10 @@ export const API_ENDPOINTS = {
     PURCHASE_ANALYTICS: '/medicines/analytics/purchases',
     PURCHASE_HISTORY: '/medicines/purchases/history',
   },
+  PAYMENT: {
+    CONFIG: '/payment/config',
+    INITIATE: '/payment/initiate',
+  },
 };
 
 /**

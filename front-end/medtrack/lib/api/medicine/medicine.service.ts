@@ -86,6 +86,10 @@ export interface PurchaseHistoryItem {
   unitPrice: number;
   totalPrice: number;
   createdAt: string;
+  orderId?: string;
+  paymentStatus?: "PENDING" | "PAID" | "FAILED";
+  paymentMethod?: string;
+  transactionId?: string;
   medicine: {
     _id: string;
     medicineName: string;

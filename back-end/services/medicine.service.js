@@ -230,6 +230,7 @@ const purchaseMedicine = async (req, res) => {
       quantity: requestedQty,
       unitPrice: medicine.price,
       totalPrice: medicine.price * requestedQty,
+      paymentStatus: "PAID",
     });
 
     const io = getSocketInstance();

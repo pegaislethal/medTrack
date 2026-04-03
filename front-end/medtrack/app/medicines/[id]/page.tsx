@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { getMedicineById, type Medicine } from "@/lib/api/medicine";
 import {
-  getMedicineById,
-  purchaseMedicine,
-  type Medicine,
-} from "@/lib/api/medicine";
+  getPaymentConfig,
+  initiatePayment,
+  type PaymentConfig,
+} from "@/lib/api/payment";
 import { getUser, isAuthenticated } from "@/lib/utils/token";
+import { getSocket } from "@/lib/socket";
 
 export default function MedicineDetailsPage() {
   const params = useParams<{ id: string }>();
@@ -19,6 +21,20 @@ export default function MedicineDetailsPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [buyQuantity, setBuyQuantity] = useState(1);
   const [isBuying, setIsBuying] = useState(false);
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
+  const [paymentSession, setPaymentSession] = useState<{
+    orderId: string;
+    amount: number;
+    qrData: string;
+    quantity: number;
+    unitPrice: number;
+    medicine: {
+      _id: string;
+      medicineName: string;
+      batchNumber: string;
+      price: number;
+    };
+  } | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -29,7 +45,38 @@ export default function MedicineDetailsPage() {
     const user = getUser();
     setIsAdmin(user?.role === "admin");
     fetchMedicine();
+    getPaymentConfig()
+      .then((res) => {
+        if (res.success && res.data) setPaymentConfig(res.data);
+      })
+      .catch(() => {
+        /* optional: show inline notice */
+      });
   }, [router, params.id]);
+
+  useEffect(() => {
+    if (!paymentSession?.orderId) return;
+    const socket = getSocket();
+    const room = paymentSession.orderId;
+    socket.emit("joinOrderRoom", room);
+    const onPaymentUpdate = (payload: { status: string; orderId: string }) => {
+      if (payload.orderId !== room) return;
+      if (payload.status === "PAID") {
+        setPaymentSession(null);
+        fetchMedicine();
+        alert("Payment successful — your order is confirmed.");
+      }
+      if (payload.status === "FAILED") {
+        setPaymentSession(null);
+        alert("Payment was cancelled or failed.");
+      }
+    };
+    socket.on("paymentUpdate", onPaymentUpdate);
+    return () => {
+      socket.emit("leaveOrderRoom", room);
+      socket.off("paymentUpdate", onPaymentUpdate);
+    };
+  }, [paymentSession?.orderId]);
 
   const fetchMedicine = async () => {
     try {
@@ -79,21 +126,73 @@ export default function MedicineDetailsPage() {
 
     try {
       setIsBuying(true);
-      const response = await purchaseMedicine(medicine._id, quantity);
-      if (!response.success) {
-        alert(response.message || "Failed to purchase medicine");
+      const response = await initiatePayment({
+        medicine: medicine._id,
+        quantity,
+        unitPrice: medicine.price,
+      });
+      if (!response.success || !response.data) {
+        alert(response.message || "Could not start payment");
         return;
       }
-
-      const updatedQty = Math.max(0, medicine.quantity - quantity);
-      setMedicine({ ...medicine, quantity: updatedQty });
-      setBuyQuantity(1);
-      alert("Medicine purchased successfully");
+      setPaymentSession({
+        orderId: response.data.orderId,
+        amount: response.data.amount,
+        qrData: response.data.qrData,
+        quantity,
+        unitPrice: medicine.price,
+        medicine: {
+          _id: medicine._id,
+          medicineName: medicine.medicineName,
+          batchNumber: medicine.batchNumber,
+          price: medicine.price,
+        },
+      });
     } catch (err: any) {
-      alert(err.message || "Failed to purchase medicine");
+      alert(err.message || "Could not start payment");
     } finally {
       setIsBuying(false);
     }
+  };
+
+  const handleFakeConfirm = () => {
+    if (!paymentSession) return;
+
+    const currentUser = getUser();
+    const buyerEmail = currentUser?.email || "unknown";
+    const buyerId = currentUser?.userId || currentUser?.id || currentUser?._id || "local";
+
+    const fakeActivity = {
+      _id: paymentSession.orderId,
+      orderId: paymentSession.orderId,
+      quantity: paymentSession.quantity,
+      unitPrice: paymentSession.unitPrice,
+      totalPrice: paymentSession.amount,
+      createdAt: new Date().toISOString(),
+      medicine: paymentSession.medicine,
+      buyer: {
+        _id: buyerId,
+        fullname: currentUser?.fullname || buyerEmail,
+        email: buyerEmail,
+      },
+      paymentStatus: "PAID",
+      paymentMethod: paymentConfig?.provider || "ESEWA",
+      transactionId: "FAKE",
+    };
+
+    try {
+      const key = "medtrack_payment_activity_v1";
+      const existing = JSON.parse(localStorage.getItem(key) || "[]") as any[];
+      const filtered = existing.filter((x) => x?._id !== fakeActivity._id);
+      filtered.unshift(fakeActivity);
+      localStorage.setItem(key, JSON.stringify(filtered.slice(0, 20)));
+    } catch {
+      // If localStorage fails, just proceed with closing the modal.
+    }
+
+    setPaymentSession(null);
+    setBuyQuantity(1);
+    router.push("/dashboard?tab=activity");
   };
 
   return (
@@ -162,7 +261,12 @@ export default function MedicineDetailsPage() {
 
             {!isAdmin && (
               <div className="rounded-xl border border-slate-200 p-4">
-                <p className="text-sm font-semibold text-black mb-3">Buy this medicine</p>
+                <p className="text-sm font-semibold text-black mb-1">Buy this medicine</p>
+                {paymentConfig && (
+                  <p className="text-xs text-slate-500 mb-3">
+                    Pay with {paymentConfig.displayName} (merchant: {paymentConfig.merchantCode})
+                  </p>
+                )}
                 <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
                   <div className="flex items-center gap-2">
                     <label className="text-sm font-semibold text-black">Quantity</label>
@@ -187,7 +291,59 @@ export default function MedicineDetailsPage() {
                     disabled={medicine.quantity <= 0 || isBuying}
                     className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isBuying ? "Purchasing..." : "Buy Now"}
+                    {isBuying ? "Starting checkout…" : "Pay now"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {paymentSession && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                <div className="max-w-md w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+                  <h3 className="text-lg font-bold text-slate-900">
+                    Complete payment
+                    {paymentConfig ? ` — ${paymentConfig.displayName}` : ""}
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Order ID: <span className="font-mono text-xs">{paymentSession.orderId}</span>
+                  </p>
+                  <p className="mt-2 text-base font-semibold text-slate-900">
+                    Amount: ${paymentSession.amount.toFixed(2)}
+                  </p>
+                  <div className="mt-4 flex justify-center">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                        paymentSession.qrData
+                      )}`}
+                      alt="Payment QR"
+                      className="rounded-xl border border-slate-100"
+                    />
+                  </div>
+                  <a
+                    href={paymentSession.qrData}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 block text-center text-sm font-semibold text-indigo-600 hover:text-indigo-500"
+                  >
+                    Open payment page
+                  </a>
+                  <p className="mt-3 text-xs text-slate-500 text-center">
+                    After you pay, this window will update automatically. You can also return from the
+                    payment app — keep this page open.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleFakeConfirm}
+                    className="mt-3 w-full rounded-xl bg-emerald-600 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
+                  >
+                    Fake confirm payment
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentSession(null)}
+                    className="mt-4 w-full rounded-xl border border-slate-200 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Close
                   </button>
                 </div>
               </div>

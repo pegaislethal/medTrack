@@ -90,6 +90,7 @@ export default function PurchasesPage() {
                   <th className="px-4 py-3 text-left text-xs text-slate-500">Qty</th>
                   <th className="px-4 py-3 text-left text-xs text-slate-500">Unit Price</th>
                   <th className="px-4 py-3 text-left text-xs text-slate-500">Total</th>
+                  <th className="px-4 py-3 text-left text-xs text-slate-500">Payment</th>
                   <th className="px-4 py-3 text-left text-xs text-slate-500">Date</th>
                 </tr>
               </thead>
@@ -105,6 +106,23 @@ export default function PurchasesPage() {
                     <td className="px-4 py-3 text-sm text-slate-600">{item.quantity}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">${item.unitPrice.toFixed(2)}</td>
                     <td className="px-4 py-3 text-sm font-medium text-slate-800">${item.totalPrice.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {item.paymentStatus ? (
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            item.paymentStatus === "PAID"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : item.paymentStatus === "PENDING"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {item.paymentStatus}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm text-slate-600">
                       {new Date(item.createdAt).toLocaleString()}
                     </td>

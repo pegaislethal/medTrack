@@ -27,6 +27,24 @@ const purchaseSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+
+    // Payment related fields
+    orderId: {
+      type: String,
+      unique: true,
+    },
+    paymentMethod: {
+      type: String,
+      default: "ESEWA",
+    },
+    paymentStatus: {
+      type: String,
+      enum: ["PENDING", "PAID", "FAILED"],
+      default: "PENDING",
+    },
+    transactionId: {
+      type: String, // refId from eSewa
+    },
   },
   { timestamps: true }
 );
