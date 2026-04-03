@@ -1,6 +1,20 @@
 
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_SOCKET_URL;
+const LOCAL_API_BASE_URL = "http://localhost:5000/api";
+const PROD_API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://medtrack-2t04.onrender.com/api";
+
+// If the frontend is running locally, talk to the local backend.
+// On Vercel/production, use the deployed backend.
+const isLocalFrontend =
+  typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1");
+
+export const API_BASE_URL = isLocalFrontend
+  ? LOCAL_API_BASE_URL
+  : PROD_API_BASE_URL;
 
 // API endpoints
 export const API_ENDPOINTS = {
