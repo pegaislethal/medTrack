@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser, logoutUser } from "@/lib/api/auth";
 import { getPurchaseHistory, type PurchaseHistoryItem } from "@/lib/api/medicine";
 import { getUser, isAuthenticated } from "@/lib/utils/token";
 
-export default function UserDashboard() {
+function UserDashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
@@ -674,3 +674,18 @@ export default function UserDashboard() {
   );
 }
 
+export default function UserDashboard() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-slate-50">
+          <div className="text-center">
+            <p className="text-slate-600">Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <UserDashboardContent />
+    </Suspense>
+  );
+}
