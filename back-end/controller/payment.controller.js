@@ -15,6 +15,73 @@ const buildPaymentQrUrl = (amount, orderId) => {
   return `${base}${sep}amt=${amount}&pid=${orderId}&scd=${merchantCode}`;
 };
 
+const confirmPaymentByOrderId = async (orderId, transactionId) => {
+  const io = getSocketOrNull();
+
+  const purchase = await Purchase.findOne({ orderId });
+  if (!purchase) {
+    return { ok: false, code: "order_not_found" };
+  }
+
+  if (purchase.paymentStatus === "PAID") {
+    return { ok: true, already: true };
+  }
+
+  const medicine = await Medicine.findById(purchase.medicine);
+  if (!medicine) {
+    await Purchase.findOneAndUpdate({ orderId }, { paymentStatus: "FAILED" });
+    if (io) io.to(orderId).emit("paymentUpdate", { status: "FAILED", orderId });
+    return { ok: false, code: "medicine_missing" };
+  }
+
+  if (medicine.quantity < purchase.quantity) {
+    await Purchase.findOneAndUpdate({ orderId }, { paymentStatus: "FAILED" });
+    if (io) io.to(orderId).emit("paymentUpdate", { status: "FAILED", orderId });
+    return { ok: false, code: "stock" };
+  }
+
+  // Deduct stock only when payment is confirmed (transition PENDING -> PAID)
+  medicine.quantity -= purchase.quantity;
+  await medicine.save();
+
+  await Purchase.findOneAndUpdate(
+    { orderId },
+    {
+      paymentStatus: "PAID",
+      transactionId: transactionId || "N/A",
+    },
+    { new: true }
+  );
+
+  if (io) {
+    io.emit("medicine:stockUpdated", {
+      medicineId: medicine._id.toString(),
+      quantity: medicine.quantity,
+    });
+
+    if (medicine.quantity <= 10) {
+      io.emit("medicine:lowStock", {
+        medicineId: medicine._id.toString(),
+        medicineName: medicine.medicineName,
+        quantity: medicine.quantity,
+      });
+    }
+
+    io.emit("analytics:purchaseCreated", {
+      medicineId: medicine._id.toString(),
+      quantity: purchase.quantity,
+      totalPrice: purchase.totalPrice,
+    });
+
+    io.to(orderId).emit("paymentUpdate", {
+      status: "PAID",
+      orderId,
+    });
+  }
+
+  return { ok: true };
+};
+
 exports.getPaymentConfig = (req, res) => {
   const provider = process.env.PAYMENT_GATEWAY || "ESEWA";
   const merchantCode = process.env.ESEWA_MERCHANT_CODE || "EPAYTEST";
@@ -115,7 +182,6 @@ exports.initiatePayment = async (req, res) => {
 };
 
 exports.paymentSuccess = async (req, res) => {
-  const io = getSocketOrNull();
   const frontendUrl = getFrontendBaseUrl();
   const { oid, refId } = req.query;
 
@@ -124,68 +190,10 @@ exports.paymentSuccess = async (req, res) => {
   }
 
   try {
-    const purchase = await Purchase.findOne({ orderId: oid });
-
-    if (!purchase) {
-      return res.redirect(`${frontendUrl}/payment-failed?reason=order_not_found`);
-    }
-
-    if (purchase.paymentStatus === "PAID") {
-      return res.redirect(`${frontendUrl}/payment-success`);
-    }
-
-    const medicine = await Medicine.findById(purchase.medicine);
-    if (!medicine) {
-      await Purchase.findOneAndUpdate(
-        { orderId: oid },
-        { paymentStatus: "FAILED" }
-      );
-      if (io) io.to(oid).emit("paymentUpdate", { status: "FAILED", orderId: oid });
-      return res.redirect(`${frontendUrl}/payment-failed?reason=medicine_missing`);
-    }
-
-    if (medicine.quantity < purchase.quantity) {
-      await Purchase.findOneAndUpdate(
-        { orderId: oid },
-        { paymentStatus: "FAILED" }
-      );
-      if (io) io.to(oid).emit("paymentUpdate", { status: "FAILED", orderId: oid });
-      return res.redirect(`${frontendUrl}/payment-failed?reason=stock`);
-    }
-
-    medicine.quantity -= purchase.quantity;
-    await medicine.save();
-
-    await Purchase.findOneAndUpdate(
-      { orderId: oid },
-      {
-        paymentStatus: "PAID",
-        transactionId: refId || "N/A",
-      },
-      { new: true }
-    );
-
-    if (io) {
-      io.emit("medicine:stockUpdated", {
-        medicineId: medicine._id.toString(),
-        quantity: medicine.quantity,
-      });
-      if (medicine.quantity <= 10) {
-        io.emit("medicine:lowStock", {
-          medicineId: medicine._id.toString(),
-          medicineName: medicine.medicineName,
-          quantity: medicine.quantity,
-        });
-      }
-      io.emit("analytics:purchaseCreated", {
-        medicineId: medicine._id.toString(),
-        quantity: purchase.quantity,
-        totalPrice: purchase.totalPrice,
-      });
-      io.to(oid).emit("paymentUpdate", {
-        status: "PAID",
-        orderId: oid,
-      });
+    const result = await confirmPaymentByOrderId(oid, refId);
+    if (!result.ok) {
+      const reason = result.code || "server";
+      return res.redirect(`${frontendUrl}/payment-failed?reason=${reason}`);
     }
 
     return res.redirect(`${frontendUrl}/payment-success`);
@@ -215,4 +223,53 @@ exports.paymentFailure = async (req, res) => {
   }
 
   return res.redirect(`${frontendUrl}/payment-failed`);
+};
+
+// POST /api/payment/confirm
+// Used by front-end "fake confirm" to mark an order as PAID.
+exports.confirmPayment = async (req, res) => {
+  const { orderId, transactionId } = req.body || {};
+
+  const buyerId = req.user?.userId || req.user?.id || req.userId;
+  if (!buyerId) {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
+  // Security: block admin role from confirming payments in this flow.
+  if (req.user?.role === "admin") {
+    return res.status(403).json({ success: false, message: "Forbidden" });
+  }
+
+  if (!orderId) {
+    return res.status(400).json({ success: false, message: "Missing orderId" });
+  }
+
+  try {
+    const purchase = await Purchase.findOne({ orderId });
+    if (!purchase) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    // Security: ensure the authenticated user owns this purchase order.
+    if (!purchase.buyer || purchase.buyer.toString() !== buyerId.toString()) {
+      return res.status(403).json({ success: false, message: "Not allowed" });
+    }
+
+    const result = await confirmPaymentByOrderId(orderId, transactionId || "FAKE");
+    if (!result.ok) {
+      return res.status(400).json({
+        success: false,
+        message:
+          result.code === "stock"
+            ? "Insufficient stock"
+            : "Payment confirm failed",
+        code: result.code,
+      });
+    }
+
+    return res.json({ success: true, data: { paymentStatus: "PAID", orderId } });
+  } catch (err) {
+    console.error("confirmPayment:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
 };

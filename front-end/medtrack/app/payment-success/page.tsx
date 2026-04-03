@@ -11,7 +11,7 @@ export default function PaymentSuccessPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h1 className="text-xl font-bold text-slate-900">Payment successful</h1>
+        <h1 className="text-xl font-bold text-slate-900">Payment confirmed</h1>
         <p className="mt-2 text-sm text-slate-600">
           Your order was confirmed. You can view it in your purchase history.
         </p>

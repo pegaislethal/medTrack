@@ -7,6 +7,7 @@ import { getMedicineById, type Medicine } from "@/lib/api/medicine";
 import {
   getPaymentConfig,
   initiatePayment,
+  confirmPayment,
   type PaymentConfig,
 } from "@/lib/api/payment";
 import { getUser, isAuthenticated } from "@/lib/utils/token";
@@ -64,7 +65,7 @@ export default function MedicineDetailsPage() {
       if (payload.status === "PAID") {
         setPaymentSession(null);
         fetchMedicine();
-        alert("Payment successful — your order is confirmed.");
+        alert("Payment confirmed.");
       }
       if (payload.status === "FAILED") {
         setPaymentSession(null);
@@ -155,44 +156,64 @@ export default function MedicineDetailsPage() {
     }
   };
 
-  const handleFakeConfirm = () => {
+  const handleFakeConfirm = async () => {
     if (!paymentSession) return;
 
-    const currentUser = getUser();
-    const buyerEmail = currentUser?.email || "unknown";
-    const buyerId = currentUser?.userId || currentUser?.id || currentUser?._id || "local";
-
-    const fakeActivity = {
-      _id: paymentSession.orderId,
-      orderId: paymentSession.orderId,
-      quantity: paymentSession.quantity,
-      unitPrice: paymentSession.unitPrice,
-      totalPrice: paymentSession.amount,
-      createdAt: new Date().toISOString(),
-      medicine: paymentSession.medicine,
-      buyer: {
-        _id: buyerId,
-        fullname: currentUser?.fullname || buyerEmail,
-        email: buyerEmail,
-      },
-      paymentStatus: "PAID",
-      paymentMethod: paymentConfig?.provider || "ESEWA",
-      transactionId: "FAKE",
-    };
-
     try {
-      const key = "medtrack_payment_activity_v1";
-      const existing = JSON.parse(localStorage.getItem(key) || "[]") as any[];
-      const filtered = existing.filter((x) => x?._id !== fakeActivity._id);
-      filtered.unshift(fakeActivity);
-      localStorage.setItem(key, JSON.stringify(filtered.slice(0, 20)));
-    } catch {
-      // If localStorage fails, just proceed with closing the modal.
-    }
+      setIsBuying(true);
 
-    setPaymentSession(null);
-    setBuyQuantity(1);
-    router.push("/dashboard?tab=activity");
+      // Confirm on backend so admin table shows PAID immediately.
+      const res = await confirmPayment({
+        orderId: paymentSession.orderId,
+        transactionId: "FAKE",
+      });
+      if (!res.success) {
+        throw new Error(res.message || "Failed to confirm payment");
+      }
+
+      const currentUser = getUser();
+      const buyerEmail = currentUser?.email || "unknown";
+      const buyerId =
+        currentUser?.userId || currentUser?.id || currentUser?._id || "local";
+
+      // Local fallback so activity tab can show instantly even if the API is slow.
+      const fakeActivity = {
+        _id: paymentSession.orderId,
+        orderId: paymentSession.orderId,
+        quantity: paymentSession.quantity,
+        unitPrice: paymentSession.unitPrice,
+        totalPrice: paymentSession.amount,
+        createdAt: new Date().toISOString(),
+        medicine: paymentSession.medicine,
+        buyer: {
+          _id: buyerId,
+          fullname: currentUser?.fullname || buyerEmail,
+          email: buyerEmail,
+        },
+        paymentStatus: "PAID",
+        paymentMethod: paymentConfig?.provider || "ESEWA",
+        transactionId: "FAKE",
+      };
+
+      try {
+        const key = "medtrack_payment_activity_v1";
+        const existing = JSON.parse(localStorage.getItem(key) || "[]") as any[];
+        const filtered = existing.filter((x) => x?._id !== fakeActivity._id);
+        filtered.unshift(fakeActivity);
+        localStorage.setItem(key, JSON.stringify(filtered.slice(0, 20)));
+      } catch {
+        // Ignore localStorage failures.
+      }
+
+      setPaymentSession(null);
+      setBuyQuantity(1);
+      alert("Payment confirmed");
+      router.push("/dashboard?tab=activity");
+    } catch (err: any) {
+      alert(err.message || "Failed to confirm payment");
+    } finally {
+      setIsBuying(false);
+    }
   };
 
   return (
@@ -334,9 +355,10 @@ export default function MedicineDetailsPage() {
                   <button
                     type="button"
                     onClick={handleFakeConfirm}
-                    className="mt-3 w-full rounded-xl bg-emerald-600 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
+                    disabled={isBuying}
+                    className="mt-3 w-full rounded-xl bg-emerald-600 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Fake confirm payment
+                    {isBuying ? "Confirming…" : "Fake confirm payment"}
                   </button>
                   <button
                     type="button"

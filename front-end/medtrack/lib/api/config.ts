@@ -1,6 +1,6 @@
 
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_SOCKET_URL;
 
 // API endpoints
 export const API_ENDPOINTS = {
@@ -38,6 +38,7 @@ export const API_ENDPOINTS = {
   PAYMENT: {
     CONFIG: '/payment/config',
     INITIATE: '/payment/initiate',
+    CONFIRM: '/payment/confirm',
   },
 };
 

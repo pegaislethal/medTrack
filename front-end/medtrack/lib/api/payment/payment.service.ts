@@ -37,6 +37,20 @@ export interface InitiatePaymentResponse {
   data?: InitiatePaymentData;
 }
 
+export interface ConfirmPaymentBody {
+  orderId: string;
+  transactionId?: string;
+}
+
+export interface ConfirmPaymentResponse {
+  success: boolean;
+  message?: string;
+  data?: {
+    paymentStatus: "PAID" | "PENDING" | "FAILED";
+    orderId: string;
+  };
+}
+
 const apiRequest = async <T>(
   endpoint: string,
   options: RequestInit = {}
@@ -97,6 +111,26 @@ export const initiatePayment = async (
   }
 
   return apiRequest<InitiatePaymentResponse>(API_ENDPOINTS.PAYMENT.INITIATE, {
+    method: "POST",
+    headers: getAuthHeader() as HeadersInit,
+    body: JSON.stringify(body),
+  });
+};
+
+// Mark a pending order as paid (used for fake-confirm/test flow)
+export const confirmPayment = async (
+  body: ConfirmPaymentBody
+): Promise<ConfirmPaymentResponse> => {
+  const token = getToken();
+  if (!token) {
+    throw {
+      status: "error",
+      message: "No authentication token found",
+      statusCode: 401,
+    } as ApiError & { statusCode: number };
+  }
+
+  return apiRequest<ConfirmPaymentResponse>(API_ENDPOINTS.PAYMENT.CONFIRM, {
     method: "POST",
     headers: getAuthHeader() as HeadersInit,
     body: JSON.stringify(body),

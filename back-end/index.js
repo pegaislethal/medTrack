@@ -65,7 +65,6 @@ app.set("io", io);
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
-  // ✅ JOIN ORDER ROOM (for payment tracking)
   socket.on("joinOrderRoom", (orderId) => {
     console.log(`User joined room: ${orderId}`);
     socket.join(orderId);
