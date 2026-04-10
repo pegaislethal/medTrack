@@ -262,3 +262,29 @@ export const logoutAdmin = (): void => {
   removeToken();
 };
 
+/**
+ * Get recent activity (Admin only)
+ */
+export const getRecentActivities = async (): Promise<{
+  success: boolean;
+  message: string;
+  data: any[];
+}> => {
+  const token = getToken();
+
+  if (!token) {
+    throw {
+      status: 'error',
+      message: 'No authentication token found',
+      statusCode: 401,
+    } as ApiError & { statusCode: number };
+  }
+
+  return apiRequest<{ success: boolean; message: string; data: any[] }>(
+    API_ENDPOINTS.ADMIN.ACTIVITIES,
+    {
+      method: 'GET',
+      headers: getAuthHeader() as HeadersInit,
+    }
+  );
+};

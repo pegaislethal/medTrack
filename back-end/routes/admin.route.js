@@ -10,6 +10,7 @@ const {
   verifyLoginOTPAdmin,
   adminGetAllUsers,
   deleteUserByAdmin,
+  getRecentActivity,
 } = require("../controller/admin.controller");
 
 // Admin Registration
@@ -29,5 +30,8 @@ router.get("/page", authenticate, authAdmin('admin'), adminGetAllUsers);
 
 // Delete any user
 router.delete("/user/:id", authenticate, authAdmin('admin'), deleteUserByAdmin);
+
+// Recent Activities (Admin only)
+router.get("/activities", authenticate, authAdmin('admin'), getRecentActivity);
 
 module.exports = router;

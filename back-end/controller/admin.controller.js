@@ -11,6 +11,7 @@ const verifyLoginOTPAdmin = (req, res) =>
 const adminGetAllUsers = (req, res) => adminService.adminGetAllUsers(req, res);
 const deleteUserByAdmin = (req, res) =>
   adminService.deleteUserByAdmin(req, res);
+const getRecentActivity = (req, res) => adminService.getRecentActivity(req, res);
 
 module.exports = {
   registerAdmin,
@@ -19,4 +20,5 @@ module.exports = {
   verifyLoginOTPAdmin,
   adminGetAllUsers,
   deleteUserByAdmin,
+  getRecentActivity,
 };

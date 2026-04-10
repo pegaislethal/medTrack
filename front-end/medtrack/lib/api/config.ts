@@ -36,6 +36,7 @@ export const API_ENDPOINTS = {
     VERIFY_LOGIN_OTP: '/admin/verify-login-otp',
     GET_ALL_USERS: '/admin/page',
     DELETE_USER: '/admin/user',
+    ACTIVITIES: '/admin/activities',
   },
   // Pharmacists endpoints
   PHARMACISTS: {

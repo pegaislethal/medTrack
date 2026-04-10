@@ -1,16 +1,43 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { getRecentActivities } from "@/lib/api/admin";
 import { getAllMedicines, type Medicine } from "@/lib/api/medicine";
-import { Pill, AlertTriangle, PackageOpen, TrendingUp } from "lucide-react";
+import { Pill, AlertTriangle, PackageOpen, TrendingUp, History, UserPlus, ShoppingCart } from "lucide-react";
+import { getUser } from "@/lib/utils/token";
+
+interface Activity {
+  _id: string;
+  type: string;
+  message: string;
+  timestamp: string;
+}
 
 export default function Dashboard() {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    const user = getUser();
+    if (user && user.role === 'admin') {
+      setIsAdmin(true);
+      fetchActivities();
+    }
     fetchMedicines();
   }, []);
+
+  const fetchActivities = async () => {
+    try {
+      const response = await getRecentActivities();
+      if (response.success && response.data) {
+        setActivities(response.data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchMedicines = async () => {
     try {
@@ -140,25 +167,64 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Quick Actions (Optional, fits minimal theme) */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hidden lg:block">
-           <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-slate-900">System Status</h2>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="text-xs font-medium text-slate-600">Online</span>
+        {isAdmin ? (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hidden lg:flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-slate-900">Recent Activity</h2>
+              <History className="w-5 h-5 text-slate-400" />
+            </div>
+            <div className="p-0 flex-1 overflow-y-auto">
+              {activities.length === 0 ? (
+                <div className="p-6 text-center text-sm text-slate-500 py-8">
+                  No recent activities recorded.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {activities.map((activity) => (
+                    <div key={activity._id} className="p-4 flex gap-4 hover:bg-slate-50 transition-colors">
+                      <div className={`mt-0 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                        activity.type === 'SALE' ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'
+                      }`}>
+                        {activity.type === 'SALE' ? (
+                          <ShoppingCart className="w-4 h-4" />
+                        ) : (
+                          <UserPlus className="w-4 h-4" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-900 leading-snug">
+                          {activity.message}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {new Date(activity.timestamp).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-          <div className="p-6 flex flex-col items-center justify-center h-full text-center pb-12">
-             <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-4">
-               <TrendingUp className="w-8 h-8" />
-             </div>
-             <h3 className="text-lg font-medium text-slate-900">All Systems Operational</h3>
-             <p className="text-sm text-slate-500 mt-2 max-w-xs mx-auto">
-               Your MedTrack inventory and billing systems are running smoothly.
-             </p>
+        ) : (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hidden lg:block">
+             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-slate-900">System Status</h2>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="text-xs font-medium text-slate-600">Online</span>
+              </div>
+            </div>
+            <div className="p-6 flex flex-col items-center justify-center h-full text-center pb-12">
+               <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-4">
+                 <TrendingUp className="w-8 h-8" />
+               </div>
+               <h3 className="text-lg font-medium text-slate-900">All Systems Operational</h3>
+               <p className="text-sm text-slate-500 mt-2 max-w-xs mx-auto">
+                 Your MedTrack inventory and billing systems are running smoothly.
+               </p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

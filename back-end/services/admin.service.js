@@ -258,6 +258,57 @@ const deleteUserByAdmin = async (req, res) => {
   }
 };
 
+// GET RECENT ACTIVITY (ADMIN ONLY)
+const getRecentActivity = async (req, res) => {
+  try {
+    const Purchase = require("../models/purchase.model");
+    
+    // Fetch last 10 purchases
+    const recentPurchases = await Purchase.find()
+      .populate("medicine", "medicineName")
+      .populate("buyer", "fullname")
+      .sort({ createdAt: -1 })
+      .limit(10);
+      
+    // Fetch last 10 pharmacist creations
+    const recentUsers = await User.find({ role: "pharmacist" })
+      .sort({ createdAt: -1 })
+      .limit(10);
+      
+    // Format activities
+    const activities = [
+      ...recentPurchases.map(p => ({
+        _id: p._id,
+        type: "SALE",
+        message: `Pharmacist ${p.buyer?.fullname || "Unknown"} sold ${p.quantity}x ${p.medicine?.medicineName || "Unknown"} to ${p.customerName || "Walk-in Customer"}`,
+        timestamp: p.createdAt,
+      })),
+      ...recentUsers.map(u => ({
+        _id: u._id,
+        type: "USER_CREATED",
+        message: `Pharmacist ${u.fullname} was created`,
+        timestamp: u.createdAt,
+      }))
+    ];
+    
+    // Sort combined array by timestamp descending and take top 10
+    activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const finalActivities = activities.slice(0, 10);
+    
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Recent activity fetched successfully",
+      data: finalActivities,
+    });
+  } catch (error) {
+    console.error("Error fetching recent activity:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
 module.exports = {
   registerAdmin,
   verifyOTPAdmin,
@@ -265,4 +316,5 @@ module.exports = {
   verifyLoginOTPAdmin,
   adminGetAllUsers,
   deleteUserByAdmin,
+  getRecentActivity,
 };
