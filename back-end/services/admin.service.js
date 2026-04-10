@@ -70,6 +70,22 @@ const verifyOTPAdmin = async (req, res) => {
       });
     }
 
+    if (admin.isVerified) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        status: "error",
+        message: "Account is already verified. Please log in.",
+        error: "ALREADY_VERIFIED",
+      });
+    }
+
+    if (!admin.otp) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        status: "error",
+        message: "No OTP found. Please register again.",
+        error: "OTP_NOT_FOUND",
+      });
+    }
+
     if (admin.otp !== otp) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         status: "error",
@@ -250,5 +266,3 @@ module.exports = {
   adminGetAllUsers,
   deleteUserByAdmin,
 };
-
-

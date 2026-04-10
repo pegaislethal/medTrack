@@ -68,6 +68,22 @@ const verifyOTPUser = async (req, res) => {
       });
     }
 
+    if (user.isVerified) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        status: "error",
+        message: "Account is already verified. Please log in.",
+        error: "ALREADY_VERIFIED",
+      });
+    }
+
+    if (!user.otp) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        status: "error",
+        message: "No OTP found. Please register again.",
+        error: "OTP_NOT_FOUND",
+      });
+    }
+
     if (user.otp !== otp) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         status: "error",
@@ -215,7 +231,7 @@ const requestPasswordReset = async (req, res) => {
     user.otp = otp;
     await user.save();
 
-    await sendVerificationEmail(email, user.fullname, otp);
+    await sendPasswordResetEmail(email, user.fullname, otp);
 
     res.status(StatusCodes.OK).json({
       success: true,
@@ -305,5 +321,3 @@ module.exports = {
   requestPasswordReset,
   resetPassword,
 };
-
-

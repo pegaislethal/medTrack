@@ -1,0 +1,20 @@
+edicineName: "Paracetamol 500mg",
+  batchNumber: "PCM-2026-001",
+  category: "Analgesic",
+  manufacturer: "Nepal Pharmaceuticals",
+  quantity: 120,
+  price: 8,
+  description: "Used to treat fever and mild to moderate pain.",
+
+
+
+
+
+
+  medicineName: "Ibuprofen 400mg",
+  batchNumber: "IBU-2025-078",
+  category: "NSAID",
+  manufacturer: "Asian Pharma",
+  quantity: 50,
+  price: 5,
+  description: "Used for pain relief, inflammation, and fever.",

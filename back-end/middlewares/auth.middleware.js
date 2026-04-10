@@ -21,20 +21,26 @@ const authenticate = (req, res, next) => {
 };
 
 // Authorization middleware for admin access
+// Usage: authAdmin('admin') or authAdmin(['admin', 'superadmin'])
 const authAdmin = (permissions) => {
+  // Normalize to array so both authAdmin('admin') and authAdmin(['admin']) work
+  const allowedRoles = Array.isArray(permissions) ? permissions : [permissions];
+
   return async (req, res, next) => {
     try {
-      // Check if user is authenticated and has userId
       if (!req.user || (!req.user.userId && !req.user.id)) {
         return res.status(401).json({ success: false, message: "Unauthorized access." });
       }
 
-      // Get userId from token (could be userId or id)
       const userId = req.user.userId || req.user.id;
 
-      // First check if role is in token (faster check)
-      if (req.user.role && hasPermission(req.user.role, permissions)) {
-        // Verify admin exists in database
+      // ✅ FIX: Check if the user's role is IN the allowed roles array.
+      // Previously: hasPermission(req.user.role, permissions)
+      //   → requiredPermissions.includes(adminRole) checked if the *permissions
+      //     argument* (a string like 'admin') was inside the *role* string,
+      //     which is always wrong.
+      // Now: allowedRoles.includes(userRole) — correct direction.
+      if (req.user.role && allowedRoles.includes(req.user.role)) {
         const admin = await Admin.findById(userId);
         if (!admin) {
           return res.status(403).json({ success: false, message: "Admin not found." });
@@ -42,27 +48,23 @@ const authAdmin = (permissions) => {
         return next();
       }
 
-      // If no role in token, check database
+      // Fall back to DB lookup if role wasn't in the token
       const admin = await Admin.findById(userId);
       if (!admin) {
         return res.status(403).json({ success: false, message: "Admin not found. Access denied." });
       }
 
-      if (hasPermission(admin.role, permissions)) {
-        return next();  // Proceed if permission check passes
+      if (allowedRoles.includes(admin.role)) {
+        return next();
       } else {
         return res.status(403).json({ success: false, message: "Insufficient privileges." });
       }
 
     } catch (err) {
-      console.error("Error in authAdmin middleware:", err); // Log the error for debugging
+      console.error("Error in authAdmin middleware:", err);
       return res.status(500).json({ success: false, message: "Internal server error." });
     }
   };
-};
-
-const hasPermission = (adminRole, requiredPermissions) => {
-  return requiredPermissions.includes(adminRole);
 };
 
 module.exports = { authenticate, authAdmin };
