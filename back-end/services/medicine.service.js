@@ -239,12 +239,40 @@ const purchaseMedicine = async (req, res) => {
         medicineId: medicine._id.toString(),
         quantity: medicine.quantity,
       });
-      if (medicine.quantity <= 10) {
+      if (medicine.quantity <= 60) {
         io.emit("medicine:lowStock", {
           medicineId: medicine._id.toString(),
           medicineName: medicine.medicineName,
           quantity: medicine.quantity,
         });
+        
+        // Notify Admins
+        try {
+          const Admin = require("../models/admin.model");
+          const { sendEmail } = require("../utils/sendEmail");
+          
+          const admins = await Admin.find({ role: "admin" }).select("email");
+          const adminEmails = admins.map(a => a.email);
+          
+          if (adminEmails.length > 0) {
+            const subject = `⚠️ Low Stock Alert: ${medicine.medicineName}`;
+            const html = `
+              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>MedTrack Inventory Alert</h2>
+                <p>The following item has fallen below the minimum stock threshold (≤ 60).</p>
+                <div style="background-color: #FEF2F2; border: 1px solid #FCA5A5; padding: 15px; border-radius: 8px;">
+                  <h3 style="color: #B91C1C; margin-top: 0;">${medicine.medicineName}</h3>
+                  <p><strong>Batch:</strong> ${medicine.batchNumber}</p>
+                  <p><strong>Remaining Stock:</strong> ${medicine.quantity} units</p>
+                </div>
+                <p style="color: #6B7280; font-size: 12px; margin-top: 20px;">This is an automated system alert from MedTrack.</p>
+              </div>
+            `;
+            await sendEmail(adminEmails.join(","), html, subject);
+          }
+        } catch (mailErr) {
+          console.error("Failed to send low stock alert emails: ", mailErr);
+        }
       }
       io.emit("analytics:purchaseCreated", {
         medicineId: medicine._id.toString(),

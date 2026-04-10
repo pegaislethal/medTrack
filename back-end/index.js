@@ -52,6 +52,10 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use("/api", mainRouter);
 
+// Set up scheduled tasks (Cron)
+const { startCronJobs } = require("./utils/cron");
+startCronJobs();
+
 // 🔥 SOCKET.IO SETUP (UPDATED)
 const io = new Server(server, {
   cors: {
