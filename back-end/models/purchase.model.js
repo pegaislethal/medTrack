@@ -45,6 +45,20 @@ const purchaseSchema = new mongoose.Schema(
     transactionId: {
       type: String, // refId from eSewa
     },
+    
+    // Customer Info Fields
+    customerName: {
+      type: String,
+    },
+    customerAddress: {
+      type: String,
+    },
+    customerPhone: {
+      type: String,
+    },
+    prescription: {
+      type: String,
+    },
   },
   { timestamps: true }
 );

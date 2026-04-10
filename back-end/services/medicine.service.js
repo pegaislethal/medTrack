@@ -190,6 +190,7 @@ const purchaseMedicine = async (req, res) => {
   try {
     const { id } = req.params;
     const requestedQty = Number(req.body.quantity);
+    const { customerName, customerAddress, customerPhone, prescription } = req.body;
     const buyerId = req.user?.userId || req.userId || req.user?.id;
 
     if (!Number.isInteger(requestedQty) || requestedQty <= 0) {
@@ -231,6 +232,10 @@ const purchaseMedicine = async (req, res) => {
       unitPrice: medicine.price,
       totalPrice: medicine.price * requestedQty,
       paymentStatus: "PAID",
+      customerName,
+      customerAddress,
+      customerPhone,
+      prescription
     });
 
     const io = getSocketInstance();

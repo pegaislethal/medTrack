@@ -10,18 +10,31 @@ import {
   Users, 
   BellRing,
   Menu,
-  X
+  X,
+  History
 } from "lucide-react";
+
+import { getUser } from "@/lib/utils/token";
 
 export function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    const user = getUser();
+    if (user && user.role) {
+      setRole(user.role);
+    }
+  }, []);
 
   const links = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Medicines", href: "/medicines", icon: Pill },
     { name: "Billing", href: "/billing", icon: ShoppingCart },
-    { name: "Pharmacists", href: "/pharmacists", icon: Users },
+    { name: "Sales", href: "/sales", icon: History },
+    // Only show Pharmacists if admin
+    ...(role === "admin" ? [{ name: "Pharmacists", href: "/pharmacists", icon: Users }] : []),
     { name: "Alerts", href: "/alerts", icon: BellRing },
   ];
 

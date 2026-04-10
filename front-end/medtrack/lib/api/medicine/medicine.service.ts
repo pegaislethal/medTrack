@@ -297,7 +297,13 @@ export const deleteMedicine = async (medicineId: string): Promise<{
  */
 export const purchaseMedicine = async (
   medicineId: string,
-  quantity: number
+  quantity: number,
+  customerDetails?: {
+    customerName: string;
+    customerAddress: string;
+    customerPhone: string;
+    prescription: string;
+  }
 ): Promise<PurchaseResponse> => {
   const token = getToken();
 
@@ -314,7 +320,7 @@ export const purchaseMedicine = async (
     {
       method: "POST",
       headers: getAuthHeader() as HeadersInit,
-      body: JSON.stringify({ quantity }),
+      body: JSON.stringify({ quantity, ...customerDetails }),
     }
   );
 };

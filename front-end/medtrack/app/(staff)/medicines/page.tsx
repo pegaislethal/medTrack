@@ -4,10 +4,9 @@ import React, { useState, useEffect, useMemo } from "react";
 import { getAllMedicines, createMedicine, updateMedicine, deleteMedicine, type Medicine } from "@/lib/api/medicine";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
-import { Plus, Edit2, Trash2, Filter, AlertTriangle } from "lucide-react";
+import { Plus, Edit2, Trash2, Filter, AlertTriangle, Package, Calendar } from "lucide-react";
 
 export default function MedicinesPage() {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -145,88 +144,97 @@ export default function MedicinesPage() {
         </Button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Medicine Name</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Stock</TableHead>
-              <TableHead>Expiry Date</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-slate-500">
-                  <div className="animate-pulse flex items-center justify-center gap-2">
-                     <span className="w-4 h-4 rounded-full bg-slate-200"></span>
-                     <span className="w-4 h-4 rounded-full bg-slate-200"></span>
-                     <span className="w-4 h-4 rounded-full bg-slate-200"></span>
+      {loading ? (
+        <div className="flex items-center justify-center h-48 w-full bg-white rounded-2xl border border-slate-200">
+          <div className="animate-pulse flex items-center justify-center gap-2">
+            <span className="w-4 h-4 rounded-full bg-slate-200"></span>
+            <span className="w-4 h-4 rounded-full bg-slate-200"></span>
+            <span className="w-4 h-4 rounded-full bg-slate-200"></span>
+          </div>
+        </div>
+      ) : filteredMedicines.length === 0 ? (
+        <div className="flex items-center justify-center h-48 w-full bg-white rounded-2xl border border-slate-200 text-slate-500">
+          No medicines found.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredMedicines.map((med) => (
+            <div key={med._id} className="bg-white rounded-2xl shadow-sm border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all flex flex-col overflow-hidden">
+              {med.image?.url ? (
+                <div className="h-40 w-full bg-slate-100 flex items-center justify-center shrink-0 border-b border-slate-100">
+                  <img src={med.image.url} alt={med.medicineName} className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className="h-40 w-full bg-slate-50 flex items-center justify-center shrink-0 text-slate-300 border-b border-slate-100">
+                  <Package className="w-10 h-10 opacity-40" />
+                </div>
+              )}
+              <div className="p-5 flex flex-col flex-1">
+                <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 leading-tight">{med.medicineName}</h3>
+                  <div className="text-slate-500 text-xs mt-0.5 font-medium">Batch: {med.batchNumber}</div>
+                </div>
+                <div className="flex flex-col gap-2 items-end">
+                  <Badge variant="neutral">{med.category}</Badge>
+                  {isExpiringSoon(med.expiryDate) && (
+                    <Badge variant="warning" className="gap-1 font-bold text-[10px] px-1.5 py-0">
+                      <AlertTriangle className="w-3 h-3" />
+                      Expiring
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mt-auto mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase">
+                    <Package className="w-3 h-3" />
+                    Stock
                   </div>
-                </TableCell>
-              </TableRow>
-            ) : filteredMedicines.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-slate-500 text-sm">
-                  No medicines found.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredMedicines.map((med) => (
-                <TableRow key={med._id}>
-                  <TableCell>
-                    <div className="font-medium text-slate-900">{med.medicineName}</div>
-                    <div className="text-xs text-slate-500">Batch: {med.batchNumber}</div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="neutral">{med.category}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    {med.quantity <= 60 ? (
-                      <Badge variant="danger" className="gap-1.5 font-bold">
-                        <AlertTriangle className="w-3 h-3" />
-                        {med.quantity}
-                      </Badge>
-                    ) : (
-                      <Badge variant="success" className="font-medium">
-                        {med.quantity}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {isExpiringSoon(med.expiryDate) ? (
-                      <Badge variant="warning" className="gap-1.5 font-bold">
-                        <AlertTriangle className="w-3 h-3" />
-                        {new Date(med.expiryDate).toLocaleDateString()}
-                      </Badge>
-                    ) : (
-                      <span className="text-sm text-slate-600">{new Date(med.expiryDate).toLocaleDateString()}</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-sm font-medium text-slate-900">
-                    Rs {med.price.toFixed(2)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleOpenEditModal(med)}>
-                        <Edit2 className="w-4 h-4" />
-                        <span className="sr-only">Edit</span>
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleDelete(med._id)}>
-                        <Trash2 className="w-4 h-4" />
-                        <span className="sr-only">Delete</span>
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                  {med.quantity <= 60 ? (
+                    <span className="text-red-600 font-bold flex items-center gap-1.5 text-sm">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      {med.quantity} Units
+                    </span>
+                  ) : (
+                    <span className="text-slate-900 font-bold text-sm">
+                      {med.quantity} Units
+                    </span>
+                  )}
+                </div>
+                
+                <div className="flex flex-col gap-1 items-end">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase">
+                    <Calendar className="w-3 h-3" />
+                    Expiry
+                  </div>
+                  <span className={`font-bold text-sm ${isExpiringSoon(med.expiryDate) ? 'text-amber-600' : 'text-slate-900'}`}>
+                    {new Date(med.expiryDate).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-auto">
+                <div className="text-lg font-black text-indigo-700">
+                  Rs {med.price.toFixed(2)}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" className="h-9 px-3 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-transparent bg-white" onClick={() => handleOpenEditModal(med)}>
+                    <Edit2 className="w-4 h-4 mr-1.5" />
+                    Edit
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-9 w-9 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 border border-slate-200 hover:border-transparent bg-white" onClick={() => handleDelete(med._id)}>
+                    <Trash2 className="w-4 h-4" />
+                    <span className="sr-only">Delete</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <Modal 
         isOpen={isModalOpen} 

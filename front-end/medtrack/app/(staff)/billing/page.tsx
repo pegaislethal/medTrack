@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { getAllMedicines, purchaseMedicine, type Medicine } from "@/lib/api/medicine";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { ShoppingCart, Search, Plus, Minus, X, CheckCircle2 } from "lucide-react";
+import { ShoppingCart, Search, Plus, Minus, X, CheckCircle2, Eye, Receipt } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 
 interface CartItem extends Medicine {
@@ -16,7 +16,18 @@ export default function BillingPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState("");
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
+  
+  const [customerInfo, setCustomerInfo] = useState({
+    customerName: "",
+    customerAddress: "",
+    customerPhone: "",
+    prescription: "",
+  });
+
+  const [selectedMedicine, setSelectedMedicine] = useState<Medicine | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   useEffect(() => {
     fetchMedicines();
@@ -66,21 +77,34 @@ export default function BillingPage() {
     }));
   };
 
+  const setExactQuantity = (id: string, newQty: number, maxQty: number) => {
+    if (isNaN(newQty) || newQty <= 0) return;
+    const finalQty = newQty > maxQty ? maxQty : newQty;
+    setCart((prev) => prev.map(item => 
+      item._id === id ? { ...item, cartQuantity: finalQty } : item
+    ));
+  };
+
   const removeFromCart = (id: string) => {
     setCart(prev => prev.filter(item => item._id !== id));
   };
 
   const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.cartQuantity), 0);
 
-  const handleCheckout = async () => {
+  const openCheckout = () => {
+    if (cart.length === 0) return;
+    setShowCheckoutModal(true);
+  };
+
+  const handleCheckout = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (cart.length === 0) return;
     setIsCheckingOut(true);
     try {
-      // Assuming sequential purchasing for multiple items
-      // In a real system you'd have a batch endpoint.
       for (const item of cart) {
-        await purchaseMedicine(item._id, item.cartQuantity);
+        await purchaseMedicine(item._id, item.cartQuantity, customerInfo);
       }
+      setShowCheckoutModal(false);
       setShowReceipt(true);
       fetchMedicines(); // Refresh stock
     } catch (err: any) {
@@ -92,6 +116,7 @@ export default function BillingPage() {
 
   const finishCheckout = () => {
     setCart([]);
+    setCustomerInfo({ customerName: "", customerAddress: "", customerPhone: "", prescription: "" });
     setShowReceipt(false);
   };
 
@@ -128,7 +153,16 @@ export default function BillingPage() {
                       {inCart}
                     </div>
                   )}
-                  <div className="font-semibold text-slate-900 line-clamp-1">{med.medicineName}</div>
+                  <div className="flex justify-between items-start">
+                    <div className="font-semibold text-slate-900 line-clamp-1 pr-6">{med.medicineName}</div>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setSelectedMedicine(med); setShowDetailsModal(true); }}
+                      className="text-slate-400 hover:text-indigo-600 transition-colors p-1 -mt-1 -mr-1"
+                      title="View Details"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                  </div>
                   <div className="text-xs text-slate-500 mt-0.5">Batch: {med.batchNumber}</div>
                   <div className="flex justify-between items-end mt-4">
                     <div className="text-sm font-bold text-indigo-700">Rs {med.price.toFixed(2)}</div>
@@ -182,7 +216,12 @@ export default function BillingPage() {
                     >
                       <Minus className="w-4 h-4" />
                     </button>
-                    <span className="w-8 text-center text-sm font-medium">{item.cartQuantity}</span>
+                    <input 
+                      type="number"
+                      value={item.cartQuantity}
+                      onChange={(e) => setExactQuantity(item._id, parseInt(e.target.value) || 1, item.quantity)}
+                      className="w-10 text-center text-sm font-medium bg-transparent text-white border-none focus:outline-none focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none p-0"
+                    />
                     <button 
                       onClick={() => updateQuantity(item._id, 1)}
                       className="p-1 text-slate-400 hover:text-white"
@@ -206,12 +245,12 @@ export default function BillingPage() {
             <span className="text-2xl font-bold">Rs {cartTotal.toFixed(2)}</span>
           </div>
           <Button 
-            className="w-full py-6 text-lg rounded-xl"
-            disabled={cart.length === 0 || isCheckingOut}
-            isLoading={isCheckingOut}
-            onClick={handleCheckout}
+            className="w-full py-6 text-lg rounded-xl gap-2"
+            disabled={cart.length === 0}
+            onClick={openCheckout}
           >
-            Checkout & Pay
+            <Receipt className="w-5 h-5" />
+            Proceed to Checkout
           </Button>
         </div>
       </div>
@@ -247,6 +286,81 @@ export default function BillingPage() {
             Done
           </Button>
         </div>
+      </Modal>
+
+      <Modal isOpen={showCheckoutModal} onClose={() => setShowCheckoutModal(false)} title="Checkout Details">
+        <form onSubmit={handleCheckout} className="space-y-4">
+          <p className="text-sm text-slate-500">Record customer details for this transaction.</p>
+          
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-slate-700">Customer Name</label>
+            <Input required value={customerInfo.customerName} onChange={e => setCustomerInfo({...customerInfo, customerName: e.target.value})} placeholder="e.g. John Doe" />
+          </div>
+          
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-slate-700">Customer Phone</label>
+            <Input required value={customerInfo.customerPhone} onChange={e => setCustomerInfo({...customerInfo, customerPhone: e.target.value})} placeholder="e.g. 9800000000" />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-slate-700">Address</label>
+            <Input required value={customerInfo.customerAddress} onChange={e => setCustomerInfo({...customerInfo, customerAddress: e.target.value})} placeholder="e.g. Kathmandu, Nepal" />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-slate-700">Prescription Reference <span className="text-slate-400 font-normal">(Optional)</span></label>
+            <Input value={customerInfo.prescription} onChange={e => setCustomerInfo({...customerInfo, prescription: e.target.value})} placeholder="Dr. Name / Rx Code" />
+          </div>
+
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mt-4 flex justify-between items-center">
+             <span className="text-slate-600 font-medium">Total Payable Amount</span>
+             <span className="text-xl font-bold text-indigo-700">Rs {cartTotal.toFixed(2)}</span>
+          </div>
+
+          <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-2">
+            <Button type="button" variant="ghost" onClick={() => setShowCheckoutModal(false)}>Cancel</Button>
+            <Button type="submit" isLoading={isCheckingOut}>Complete Purchase</Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal isOpen={showDetailsModal} onClose={() => setShowDetailsModal(false)} title="Medicine Details">
+        {selectedMedicine && (
+          <div className="space-y-4 text-sm mt-2">
+            {selectedMedicine.image?.url ? (
+               <div className="w-full h-48 bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center border border-slate-200">
+                  <img src={selectedMedicine.image.url} alt="Medicine" className="w-full h-full object-cover" />
+               </div>
+            ) : (
+               <div className="w-full h-32 bg-slate-50 rounded-xl flex items-center justify-center border border-slate-200 text-slate-400">
+                 No Image Available
+               </div>
+            )}
+            
+            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+              <div>
+                <p className="text-slate-500 font-medium text-xs uppercase mb-1">Name</p>
+                <p className="font-semibold text-slate-900">{selectedMedicine.medicineName}</p>
+              </div>
+              <div>
+                <p className="text-slate-500 font-medium text-xs uppercase mb-1">Category</p>
+                <p className="font-semibold text-slate-900">{selectedMedicine.category}</p>
+              </div>
+              <div>
+                <p className="text-slate-500 font-medium text-xs uppercase mb-1">Manufacturer</p>
+                <p className="font-semibold text-slate-900">{selectedMedicine.manufacturer}</p>
+              </div>
+              <div>
+                <p className="text-slate-500 font-medium text-xs uppercase mb-1">Expiry Date</p>
+                <p className="font-semibold text-slate-900">{new Date(selectedMedicine.expiryDate).toLocaleDateString()}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-slate-500 font-medium text-xs uppercase mb-1">Description</p>
+                <p className="text-slate-700">{selectedMedicine.description || "N/A"}</p>
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );
