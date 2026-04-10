@@ -37,6 +37,14 @@ export const API_ENDPOINTS = {
     GET_ALL_USERS: '/admin/page',
     DELETE_USER: '/admin/user',
   },
+  // Pharmacists endpoints
+  PHARMACISTS: {
+    BASE: '/pharmacists',
+    GET_ALL: '/pharmacists',
+    CREATE: '/pharmacists',
+    UPDATE: '/pharmacists',
+    DELETE: '/pharmacists',
+  },
   // Medicine endpoints
   MEDICINES: {
     BASE: '/medicines',

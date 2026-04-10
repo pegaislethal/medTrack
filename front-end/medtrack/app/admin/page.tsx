@@ -73,7 +73,7 @@ export default function AdminLoginPage() {
         }
         
         // Redirect to admin dashboard
-        router.push("/admin/dashboard");
+        router.push("/dashboard");
         router.refresh();
       } else {
         setError(response.message || "OTP verification failed");

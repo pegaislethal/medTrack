@@ -25,14 +25,7 @@ export default function AdminSignupPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (isAuthenticated()) {
-      const user = getUser();
-      // Check if user is admin (has role property)
-      if (user && user.role === "admin") {
-        router.push("/admin/dashboard");
-      } else {
-        // Regular user logged in, redirect to user dashboard
-        router.push("/dashboard");
-      }
+      router.push("/dashboard");
     }
   }, [router]);
 

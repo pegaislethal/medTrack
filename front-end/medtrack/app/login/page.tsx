@@ -20,13 +20,7 @@ export default function LoginPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (isAuthenticated()) {
-      const user = getUser();
-      // Check if user is admin (has role property)
-      if (user && user.role === "admin") {
-        router.push("/admin/dashboard");
-      } else {
-        router.push("/dashboard");
-      }
+      router.push("/dashboard");
     }
   }, [router]);
 

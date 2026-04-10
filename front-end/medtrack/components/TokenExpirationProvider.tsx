@@ -20,12 +20,18 @@ export default function TokenExpirationProvider({
   useEffect(() => {
     // Check token expiration immediately
     const checkExpiration = () => {
+      // Allow public routes that don't need a token
+      const publicRoutes = ["/login", "/signup", "/admin", "/admin/signup", "/forgot-password"];
+      if (pathname && publicRoutes.some(route => pathname === route || pathname.startsWith(route + "?"))) {
+        return;
+      }
+
       if (checkAndClearExpiredToken()) {
         // Token was expired and cleared
         // Redirect to appropriate page based on current route
         if (pathname?.startsWith("/admin")) {
           router.push("/admin");
-        } else if (pathname?.startsWith("/dashboard") || pathname?.startsWith("/medicines")) {
+        } else if (pathname?.startsWith("/dashboard") || pathname?.startsWith("/medicines") || pathname?.startsWith("/purchases")) {
           router.push("/login");
         }
       }

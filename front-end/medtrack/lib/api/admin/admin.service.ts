@@ -147,9 +147,9 @@ export const verifyAdminLoginOTP = async (
 };
 
 /**
- * Get all users (Admin only)
+ * Get all pharmacists (Admin only)
  */
-export const getAllUsers = async (): Promise<{
+export const getAllPharmacists = async (): Promise<{
   success: boolean;
   message: string;
   data: any[];
@@ -165,7 +165,7 @@ export const getAllUsers = async (): Promise<{
   }
 
   return apiRequest<{ success: boolean; message: string; data: any[] }>(
-    API_ENDPOINTS.ADMIN.GET_ALL_USERS,
+    API_ENDPOINTS.PHARMACISTS.GET_ALL,
     {
       method: 'GET',
       headers: getAuthHeader() as HeadersInit,
@@ -174,9 +174,65 @@ export const getAllUsers = async (): Promise<{
 };
 
 /**
- * Delete user by ID (Admin only)
+ * Create a new pharmacist by Admin
  */
-export const deleteUser = async (userId: string): Promise<{
+export const createPharmacist = async (data: any): Promise<{
+  success: boolean;
+  message: string;
+  data: any;
+}> => {
+  const token = getToken();
+
+  if (!token) {
+    throw {
+      status: 'error',
+      message: 'No authentication token found',
+      statusCode: 401,
+    } as ApiError & { statusCode: number };
+  }
+
+  return apiRequest<{ success: boolean; message: string; data: any }>(
+    API_ENDPOINTS.PHARMACISTS.CREATE,
+    {
+      method: 'POST',
+      headers: getAuthHeader() as HeadersInit,
+      body: JSON.stringify(data),
+    }
+  );
+};
+
+/**
+ * Update an existing pharmacist (Admin only)
+ */
+export const updatePharmacist = async (id: string, data: any): Promise<{
+  success: boolean;
+  message: string;
+  data: any;
+}> => {
+  const token = getToken();
+
+  if (!token) {
+    throw {
+      status: 'error',
+      message: 'No authentication token found',
+      statusCode: 401,
+    } as ApiError & { statusCode: number };
+  }
+
+  return apiRequest<{ success: boolean; message: string; data: any }>(
+    `${API_ENDPOINTS.PHARMACISTS.UPDATE}/${id}`,
+    {
+      method: 'PUT',
+      headers: getAuthHeader() as HeadersInit,
+      body: JSON.stringify(data),
+    }
+  );
+};
+
+/**
+ * Delete a pharmacist by ID (Admin only)
+ */
+export const deletePharmacist = async (id: string): Promise<{
   success: boolean;
   message: string;
 }> => {
@@ -191,7 +247,7 @@ export const deleteUser = async (userId: string): Promise<{
   }
 
   return apiRequest<{ success: boolean; message: string }>(
-    `${API_ENDPOINTS.ADMIN.DELETE_USER}/${userId}`,
+    `${API_ENDPOINTS.PHARMACISTS.DELETE}/${id}`,
     {
       method: 'DELETE',
       headers: getAuthHeader() as HeadersInit,
