@@ -9,6 +9,7 @@ const {
   getAllUser,
   requestPasswordReset,
   resetPassword,
+  changeFirstPassword,
 } = require("../controller/user.controller");
 
 const { authenticate } = require("../middlewares/auth.middleware");
@@ -39,5 +40,8 @@ router.post("/password-reset/request", requestPasswordReset);
 
 // Reset password
 router.post("/password-reset/reset", resetPassword);
+
+// Change first login password
+router.post("/change-first-password", authenticate, changeFirstPassword);
 
 module.exports = router;

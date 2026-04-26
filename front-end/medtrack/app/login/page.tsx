@@ -40,7 +40,12 @@ export default function LoginPage() {
     try {
       const response = await loginUser({ email: email.trim(), password });
       
-      if (response.status === "otp_required") {
+      if (response.isFirstLogin) {
+        if (typeof window !== 'undefined' && response.token) {
+          localStorage.setItem('medtrack_token', response.token);
+        }
+        router.push("/change-password");
+      } else if (response.status === "otp_required") {
         setStep("otp");
       } else {
         setError(response.message || "An error occurred");

@@ -24,6 +24,8 @@ export default function PharmacistsPage() {
     password: "",
   });
 
+  const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -62,6 +64,7 @@ export default function PharmacistsPage() {
     setIsEditMode(false);
     setCurrentId(null);
     setFormData({ fullname: "", email: "", password: "" });
+    setGeneratedPassword(null);
     setIsModalOpen(true);
   };
 
@@ -69,6 +72,7 @@ export default function PharmacistsPage() {
     setIsEditMode(true);
     setCurrentId(user._id || user.id);
     setFormData({ fullname: user.fullname || "", email: user.email || "", password: "" });
+    setGeneratedPassword(null);
     setIsModalOpen(true);
   };
 
@@ -80,10 +84,15 @@ export default function PharmacistsPage() {
         const payload: any = { fullname: formData.fullname, email: formData.email };
         if (formData.password.trim()) payload.password = formData.password;
         await updatePharmacist(currentId, payload);
+        setIsModalOpen(false);
       } else {
-        await createPharmacist(formData);
+        const response = await createPharmacist(formData);
+        if (response.data && response.data.tempPassword) {
+          setGeneratedPassword(response.data.tempPassword);
+        } else {
+          setIsModalOpen(false);
+        }
       }
-      setIsModalOpen(false);
       fetchUsers();
     } catch (err: any) {
       alert(err.message || "Failed to save pharmacist.");
@@ -181,24 +190,44 @@ export default function PharmacistsPage() {
         onClose={() => setIsModalOpen(false)} 
         title={isEditMode ? "Edit Pharmacist" : "Add Pharmacist"}
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">Full Name</label>
-            <Input required value={formData.fullname} onChange={e => setFormData({...formData, fullname: e.target.value})} placeholder="Jane Doe" />
+        {generatedPassword ? (
+          <div className="space-y-4 py-4">
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-xl text-sm">
+              Pharmacist account created successfully! Please copy the temporary password below and share it securely with the user.
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Temporary Password</label>
+              <div className="flex gap-2">
+                <Input readOnly value={generatedPassword} className="font-mono bg-slate-50 text-slate-600" />
+                <Button type="button" onClick={() => navigator.clipboard.writeText(generatedPassword)}>Copy</Button>
+              </div>
+            </div>
+            <div className="pt-4 flex justify-end">
+              <Button onClick={() => setIsModalOpen(false)}>Done</Button>
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">Email Address</label>
-            <Input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="jane@medtrack.local" />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">{isEditMode ? "Change Password (optional)" : "Temporary Password"}</label>
-            <Input required={!isEditMode} type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="••••••••" />
-          </div>
-          <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6">
-            <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button type="submit">{isEditMode ? "Save Changes" : "Add Pharmacist"}</Button>
-          </div>
-        </form>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Full Name</label>
+              <Input required value={formData.fullname} onChange={e => setFormData({...formData, fullname: e.target.value})} placeholder="Jane Doe" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Email Address</label>
+              <Input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="jane@medtrack.local" />
+            </div>
+            {isEditMode && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">Change Password (optional)</label>
+                <Input type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="••••••••" />
+              </div>
+            )}
+            <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6">
+              <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+              <Button type="submit">{isEditMode ? "Save Changes" : "Create Pharmacist"}</Button>
+            </div>
+          </form>
+        )}
       </Modal>
     </div>
   );

@@ -22,14 +22,17 @@ const createPharmacist = async (req, res) => {
       });
     }
 
+    const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase() + "1!"; // Simple random password generator
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(tempPassword, salt);
 
     const newUser = new User({
       fullname,
       email,
       password: hashedPassword,
       isVerified: true, // Auto-verify since created by admin
+      isFirstLogin: true, // Force password change on first login
+      role: "pharmacist"
     });
 
     await newUser.save();
@@ -41,7 +44,8 @@ const createPharmacist = async (req, res) => {
         id: newUser._id,
         fullname: newUser.fullname,
         email: newUser.email,
-        role: "Pharmacist", // Logical role mapping for frontend
+        role: "pharmacist",
+        tempPassword: tempPassword, // Return so admin can view/copy it
       },
     });
   } catch (error) {

@@ -11,6 +11,7 @@ const getUserById = (req, res) => userService.getUserById(req, res);
 const requestPasswordReset = (req, res) =>
   userService.requestPasswordReset(req, res);
 const resetPassword = (req, res) => userService.resetPassword(req, res);
+const changeFirstPassword = (req, res) => userService.changeFirstPassword(req, res);
 
 module.exports = {
   registerUser,
@@ -21,6 +22,7 @@ module.exports = {
   getUserById,
   requestPasswordReset,
   resetPassword,
+  changeFirstPassword,
 };
 
 

@@ -143,6 +143,23 @@ const loginUser = async (req, res) => {
       });
     }
 
+    if (user.isFirstLogin) {
+      // First-time login with temporary password, skip OTP and force password change
+      const token = generateToken(user);
+      return res.status(StatusCodes.OK).json({
+        status: "success",
+        message: "First login detected. Please change your password.",
+        token,
+        isFirstLogin: true,
+        user: {
+          id: user._id,
+          fullname: user.fullname,
+          email: user.email,
+          role: user.role,
+        },
+      });
+    }
+
     const otp = generateOTP().otp;
     user.otp = otp;
     // Ensure profilePicture is an object
@@ -312,6 +329,52 @@ const getUserById = async (req, res, next) => {
   });
 };
 
+const changeFirstPassword = async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user.userId || req.user.id;
+
+  try {
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (!user.isFirstLogin) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Password has already been changed.",
+      });
+    }
+
+    const isMatch = await comparePassword(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(StatusCodes.UNAUTHORIZED).json({
+        success: false,
+        message: "Current password is incorrect.",
+      });
+    }
+
+    user.password = await hashPassword(newPassword);
+    user.isFirstLogin = false;
+    await user.save();
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Password changed successfully. Welcome!",
+    });
+  } catch (error) {
+    console.error("Error changing first password:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
 module.exports = {
   registerUser,
   verifyOTPUser,
@@ -321,4 +384,5 @@ module.exports = {
   getUserById,
   requestPasswordReset,
   resetPassword,
+  changeFirstPassword,
 };

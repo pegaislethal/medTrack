@@ -24,6 +24,14 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isFirstLogin: {
+      type: Boolean,
+      default: false,
+    },
+    role: {
+      type: String,
+      default: "pharmacist",
+    },
     profilePicture: {
       type: {
         public_id: String,

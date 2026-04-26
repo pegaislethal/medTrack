@@ -27,6 +27,7 @@ export const API_ENDPOINTS = {
     CURRENT_USER: '/current-user',
     PASSWORD_RESET_REQUEST: '/users/password-reset/request',
     PASSWORD_RESET: '/users/password-reset/reset',
+    CHANGE_FIRST_PASSWORD: '/users/change-first-password',
   },
   // Admin endpoints
   ADMIN: {

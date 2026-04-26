@@ -45,6 +45,7 @@ export interface AuthResponse {
   };
   email?: string;
   error?: string;
+  isFirstLogin?: boolean;
 }
 
 /**
@@ -200,6 +201,32 @@ export const resetPassword = async (
     API_ENDPOINTS.AUTH.PASSWORD_RESET,
     {
       method: 'POST',
+      body: JSON.stringify(data),
+    }
+  );
+};
+
+/**
+ * Change first login password
+ */
+export const changeFirstPassword = async (
+  data: any
+): Promise<{ success: boolean; message: string }> => {
+  const token = getToken();
+
+  if (!token) {
+    throw {
+      status: 'error',
+      message: 'No authentication token found',
+      statusCode: 401,
+    } as ApiError & { statusCode: number };
+  }
+
+  return apiRequest<{ success: boolean; message: string }>(
+    API_ENDPOINTS.AUTH.CHANGE_FIRST_PASSWORD,
+    {
+      method: 'POST',
+      headers: getAuthHeader() as HeadersInit,
       body: JSON.stringify(data),
     }
   );
