@@ -77,13 +77,22 @@ export default function BillingPage() {
     }));
   };
 
-  const setExactQuantity = (id: string, newQty: number, maxQty: number) => {
-    if (isNaN(newQty) || newQty <= 0) return;
-    const finalQty = newQty > maxQty ? maxQty : newQty;
+  const setExactQuantity = (id: string, value: string, maxQty: number) => {
+    if (value === "") {
+      setCart((prev) => prev.map(item => 
+        item._id === id ? { ...item, cartQuantity: 0 } : item
+      ));
+      return;
+    }
+    const newQty = parseInt(value);
+    if (isNaN(newQty)) return;
+    
+    const finalQty = Math.min(Math.max(0, newQty), maxQty);
     setCart((prev) => prev.map(item => 
       item._id === id ? { ...item, cartQuantity: finalQty } : item
     ));
   };
+
 
   const removeFromCart = (id: string) => {
     setCart(prev => prev.filter(item => item._id !== id));
@@ -99,7 +108,31 @@ export default function BillingPage() {
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) return;
+    
+    // Validation
+    const nameRegex = /^[a-zA-Z\s]{3,50}$/;
+    const phoneRegex = /^[0-9]{10}$/;
+    
+    if (!nameRegex.test(customerInfo.customerName)) {
+      alert("Please enter a valid Customer Name (3-50 letters only).");
+      return;
+    }
+    if (!phoneRegex.test(customerInfo.customerPhone)) {
+      alert("Please enter a valid 10-digit Phone Number.");
+      return;
+    }
+
+    if (customerInfo.customerAddress.length < 5) {
+      alert("Please enter a more detailed address.");
+      return;
+    }
+    if (cart.some(item => item.cartQuantity <= 0)) {
+      alert("Some items in your cart have 0 quantity. Please update or remove them.");
+      return;
+    }
+
     setIsCheckingOut(true);
+
     try {
       for (const item of cart) {
         await purchaseMedicine(item._id, item.cartQuantity, customerInfo);
@@ -218,10 +251,16 @@ export default function BillingPage() {
                     </button>
                     <input 
                       type="number"
-                      value={item.cartQuantity}
-                      onChange={(e) => setExactQuantity(item._id, parseInt(e.target.value) || 1, item.quantity)}
+                      value={item.cartQuantity === 0 ? "" : item.cartQuantity}
+                      onChange={(e) => setExactQuantity(item._id, e.target.value, item.quantity)}
+                      onBlur={() => {
+                        if (item.cartQuantity <= 0) {
+                          removeFromCart(item._id);
+                        }
+                      }}
                       className="w-10 text-center text-sm font-medium bg-transparent text-white border-none focus:outline-none focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none p-0"
                     />
+
                     <button 
                       onClick={() => updateQuantity(item._id, 1)}
                       className="p-1 text-slate-400 hover:text-white"
@@ -294,13 +333,36 @@ export default function BillingPage() {
           
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-slate-700">Customer Name</label>
-            <Input required value={customerInfo.customerName} onChange={e => setCustomerInfo({...customerInfo, customerName: e.target.value})} placeholder="e.g. John Doe" />
+            <Input 
+              required 
+              value={customerInfo.customerName} 
+              onChange={e => {
+                const val = e.target.value;
+                if (val === "" || /^[a-zA-Z\s]*$/.test(val)) {
+                  setCustomerInfo({...customerInfo, customerName: val});
+                }
+              }} 
+              placeholder="e.g. John Doe (Letters only)" 
+            />
           </div>
           
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-slate-700">Customer Phone</label>
-            <Input required value={customerInfo.customerPhone} onChange={e => setCustomerInfo({...customerInfo, customerPhone: e.target.value})} placeholder="e.g. 9800000000" />
+            <Input 
+              required 
+              value={customerInfo.customerPhone} 
+              onChange={e => {
+                const val = e.target.value;
+                if ((val === "" || /^[0-9]*$/.test(val)) && val.length <= 10) {
+                  setCustomerInfo({...customerInfo, customerPhone: val});
+                }
+              }} 
+              placeholder="e.g. 9800000000 (10 digits only)" 
+              maxLength={10}
+            />
+
           </div>
+
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-slate-700">Address</label>

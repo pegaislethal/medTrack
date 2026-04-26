@@ -20,11 +20,11 @@ const authenticate = (req, res, next) => {
   }
 };
 
-// Authorization middleware for admin access
-// Usage: authAdmin('admin') or authAdmin(['admin', 'superadmin'])
+// Authorization middleware for role-based access
 const authAdmin = (permissions) => {
-  // Normalize to array so both authAdmin('admin') and authAdmin(['admin']) work
-  const allowedRoles = Array.isArray(permissions) ? permissions : [permissions];
+  const allowedRoles = Array.isArray(permissions) ? permissions.map(r => r.toLowerCase()) : [permissions.toLowerCase()];
+  const Admin = require("../models/admin.model");
+  const User = require("../models/user.model");
 
   return async (req, res, next) => {
     try {
@@ -33,28 +33,38 @@ const authAdmin = (permissions) => {
       }
 
       const userId = req.user.userId || req.user.id;
+      const userRole = (req.user.role || "").toLowerCase();
 
-      // ✅ FIX: Check if the user's role is IN the allowed roles array.
-      // Previously: hasPermission(req.user.role, permissions)
-      //   → requiredPermissions.includes(adminRole) checked if the *permissions
-      //     argument* (a string like 'admin') was inside the *role* string,
-      //     which is always wrong.
-      // Now: allowedRoles.includes(userRole) — correct direction.
-      if (req.user.role && allowedRoles.includes(req.user.role)) {
-        const admin = await Admin.findById(userId);
-        if (!admin) {
-          return res.status(403).json({ success: false, message: "Admin not found." });
+      // 1. Check if the role in the token matches and is valid in DB
+      if (userRole && allowedRoles.includes(userRole)) {
+        let userRecord = null;
+        
+        // Try Admin collection first
+        if (userRole === 'admin') {
+          userRecord = await Admin.findById(userId);
+        } else {
+          // Try User collection (Pharmacists)
+          userRecord = await User.findById(userId);
         }
-        return next();
+
+        if (userRecord) return next();
       }
 
-      // Fall back to DB lookup if role wasn't in the token
-      const admin = await Admin.findById(userId);
-      if (!admin) {
-        return res.status(403).json({ success: false, message: "Admin not found. Access denied." });
+      // 2. Fallback: Lookup in both if token info is missing or role changed
+      const [adminRecord, pharmacistRecord] = await Promise.all([
+        Admin.findById(userId),
+        User.findById(userId)
+      ]);
+
+      const activeUser = adminRecord || pharmacistRecord;
+      if (!activeUser) {
+        return res.status(403).json({ success: false, message: "User not found. Access denied." });
       }
 
-      if (allowedRoles.includes(admin.role)) {
+      // Pharmacists might not have an explicit role field in DB, assume 'pharmacist' if in User collection
+      const effectiveRole = adminRecord ? adminRecord.role : 'pharmacist';
+      
+      if (allowedRoles.includes(effectiveRole.toLowerCase())) {
         return next();
       } else {
         return res.status(403).json({ success: false, message: "Insufficient privileges." });
@@ -66,5 +76,6 @@ const authAdmin = (permissions) => {
     }
   };
 };
+
 
 module.exports = { authenticate, authAdmin };

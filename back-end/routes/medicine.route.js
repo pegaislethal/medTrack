@@ -17,18 +17,20 @@ const {
 } = require("../controller/medicine.controller");
 
 // Add Medicine (Pharmacist/Admin)
-router.post("/", authenticate, uploadMiddleware, createMedicine);
+router.post("/", authenticate, authAdmin(['admin', 'pharmacist']), uploadMiddleware, createMedicine);
+
 
 // Get all medicines (User + Admin) - Read access for all authenticated users
 router.get("/", authenticate, getAllMedicines);
 
-// Purchase analytics (Admin only)
+// Purchase analytics (Admin + Pharmacist for Dashboard)
 router.get(
   "/analytics/purchases",
   authenticate,
-  authAdmin("admin"),
+  authAdmin(["admin", "pharmacist"]),
   getPurchaseAnalytics
 );
+
 
 // Purchase history (Admin sees all, users see own)
 router.get("/purchases/history", authenticate, getPurchaseHistory);
@@ -40,9 +42,11 @@ router.post("/:id/purchase", authenticate, purchaseMedicine);
 router.get("/:id", authenticate, getMedicineById);
 
 // Update Medicine (Pharmacist/Admin)
-router.put("/:id", authenticate, updateMedicine);
+router.put("/:id", authenticate, authAdmin(['admin', 'pharmacist']), updateMedicine);
+
 
 // Delete Medicine (Pharmacist/Admin)
-router.delete("/:id", authenticate, deleteMedicine);
+router.delete("/:id", authenticate, authAdmin(['admin', 'pharmacist']), deleteMedicine);
+
 
 module.exports = router;
