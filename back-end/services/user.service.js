@@ -10,6 +10,7 @@ const {
   generateOTP,
   sendVerificationEmail,
   sendLoginEmail,
+  sendPasswordResetEmail
 } = require("../utils/OTPUtils");
 
 const registerUser = async (req, res) => {

@@ -31,7 +31,8 @@ router.get("/page", authenticate, authAdmin('admin'), adminGetAllUsers);
 // Delete any user
 router.delete("/user/:id", authenticate, authAdmin('admin'), deleteUserByAdmin);
 
-// Recent Activities (Admin only)
-router.get("/activities", authenticate, authAdmin('admin'), getRecentActivity);
+// Recent Activities (Admin + Pharmacist for Dashboard)
+router.get("/activities", authenticate, authAdmin(['admin', 'pharmacist']), getRecentActivity);
+
 
 module.exports = router;
