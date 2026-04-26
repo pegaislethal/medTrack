@@ -21,6 +21,7 @@ const generateOTP = () => {
 };
 
 const sendVerificationEmail = async (email, fullName, otp) => {
+  console.log("Otp:",otp);
   const emailResponse = await sendEmail(
     email,
     verify_account_boilerplate(otp, fullName),
