@@ -307,6 +307,7 @@ const getPurchaseHistory = async (req, res) => {
   try {
     const requesterId = req.user?.userId || req.user?.id || req.userId;
     const isAdmin = req.user?.role === "admin";
+    const { fromDate, toDate } = req.query;
 
     if (!requesterId) {
       return res.status(StatusCodes.UNAUTHORIZED).json({
@@ -315,7 +316,26 @@ const getPurchaseHistory = async (req, res) => {
       });
     }
 
+    // Build the base query
     const query = isAdmin ? {} : { buyer: requesterId };
+
+    // Add date filtering if provided
+    if (fromDate || toDate) {
+      query.createdAt = {};
+      
+      if (fromDate) {
+        const startDate = new Date(fromDate);
+        startDate.setHours(0, 0, 0, 0); // Start of the day
+        query.createdAt.$gte = startDate;
+      }
+      
+      if (toDate) {
+        const endDate = new Date(toDate);
+        endDate.setHours(23, 59, 59, 999); // End of the day
+        query.createdAt.$lte = endDate;
+      }
+    }
+
     const purchases = await Purchase.find(query)
       .populate("medicine", "medicineName batchNumber price")
       .populate("buyer", "fullname email")

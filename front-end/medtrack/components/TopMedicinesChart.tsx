@@ -63,9 +63,11 @@ export default function TopMedicinesChart({ data }: TopMedicinesChartProps) {
       </div>
 
       <div className="flex-1 w-full overflow-x-auto custom-scrollbar pb-2">
-        <div style={{ minWidth: `${dynamicMinWidth}px` }} className="h-full relative min-h-[250px]">
-          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-
+        <div 
+          style={{ minWidth: `${dynamicMinWidth}px` }} 
+          className="h-full w-full relative min-h-[300px]"
+        >
+          <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis 

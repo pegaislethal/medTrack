@@ -349,7 +349,7 @@ export const getPurchaseAnalytics =
     );
   };
 
-export const getPurchaseHistory = async (): Promise<PurchaseHistoryResponse> => {
+export const getPurchaseHistory = async (fromDate?: string, toDate?: string): Promise<PurchaseHistoryResponse> => {
   const token = getToken();
 
   if (!token) {
@@ -360,7 +360,17 @@ export const getPurchaseHistory = async (): Promise<PurchaseHistoryResponse> => 
     } as ApiError & { statusCode: number };
   }
 
-  return apiRequest<PurchaseHistoryResponse>(API_ENDPOINTS.MEDICINES.PURCHASE_HISTORY, {
+  let endpoint = API_ENDPOINTS.MEDICINES.PURCHASE_HISTORY;
+  
+  // Add query parameters if dates are provided
+  if (fromDate || toDate) {
+    const params = new URLSearchParams();
+    if (fromDate) params.append('fromDate', fromDate);
+    if (toDate) params.append('toDate', toDate);
+    endpoint = `${endpoint}?${params.toString()}`;
+  }
+
+  return apiRequest<PurchaseHistoryResponse>(endpoint, {
     method: "GET",
     headers: getAuthHeader() as HeadersInit,
   });

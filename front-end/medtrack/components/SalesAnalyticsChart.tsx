@@ -195,10 +195,12 @@ export default function SalesAnalyticsChart({ history }: SalesAnalyticsChartProp
         </div>
       </div>
 
-      <div className={`w-full overflow-x-auto custom-scrollbar pb-4`}>
-        <div style={{ minWidth: dynamicMinWidth ? `${dynamicMinWidth}px` : '100%' }} className="h-[340px] relative">
-          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-
+      <div className="w-full overflow-x-auto custom-scrollbar pb-4">
+        <div 
+          style={{ minWidth: dynamicMinWidth ? `${dynamicMinWidth}px` : '100%' }} 
+          className="h-[350px] w-full relative"
+        >
+          <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 20 }}>
               <defs>
                 <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
