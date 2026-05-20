@@ -279,7 +279,7 @@ export default function MedicinesPage() {
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-slate-700">Description <span className="text-slate-400 font-normal">(Optional)</span></label>
             <textarea 
-              className="flex w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 transition-colors shadow-sm min-h-[80px]"
+              className="flex w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 transition-colors shadow-sm min-h-20"
               value={formData.description} 
               onChange={e => setFormData({...formData, description: e.target.value})} 
             />

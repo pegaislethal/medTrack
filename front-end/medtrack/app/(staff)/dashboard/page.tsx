@@ -150,6 +150,7 @@ export default function Dashboard() {
     })
     .sort((a, b) => a.quantity - b.quantity)
     .slice(0, 5); // Limit to 5
+  const notificationCount = recentAlerts.length;
 
   const handleExport = () => {
     const doc = new jsPDF();
@@ -326,10 +327,14 @@ export default function Dashboard() {
               title="Notifications"
             >
               <Bell className="w-5 h-5" />
-              {recentAlerts.length > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-semibold">
-                  {recentAlerts.length}
-                </span>
+              {notificationCount > 0 && (
+                notificationCount === 1 ? (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
+                ) : (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-semibold">
+                    {notificationCount}
+                  </span>
+                )
               )}
             </button>
 
