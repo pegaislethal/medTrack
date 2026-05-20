@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, Search, LogOut, ChevronDown } from "lucide-react";
+import { Search, LogOut, ChevronDown } from "lucide-react";
 import { getUser, removeToken } from "@/lib/utils/token";
 
 export function Topbar() {
@@ -46,11 +46,6 @@ export function Topbar() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-4 ml-auto">
-          <Link href="/alerts" className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full transition-colors">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-          </Link>
-          
           <div className="h-6 w-px bg-slate-200 mx-1"></div>
 
           {/* Profile Dropdown */}

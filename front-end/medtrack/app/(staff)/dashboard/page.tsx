@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { getRecentActivities } from "@/lib/api/admin";
 import { getAllMedicines, type Medicine, getPurchaseHistory, getPurchaseAnalytics, type PurchaseHistoryItem, type PurchaseAnalytics } from "@/lib/api/medicine";
-import { Pill, AlertTriangle, PackageOpen, TrendingUp, History, UserPlus, ShoppingCart, Calendar, Download, TrendingDown, RefreshCcw } from "lucide-react";
+import { Pill, AlertTriangle, PackageOpen, TrendingUp, History, UserPlus, ShoppingCart, Calendar, Download, RefreshCcw, Bell } from "lucide-react";
+import Link from "next/link";
 
 import { getUser } from "@/lib/utils/token";
 import SalesAnalyticsChart from "@/components/SalesAnalyticsChart";
@@ -27,6 +28,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [showAlertsDropdown, setShowAlertsDropdown] = useState(false);
+  const alertsDropdownRef = useRef<HTMLDivElement | null>(null);
 
 
   useEffect(() => {
@@ -35,6 +38,17 @@ export default function Dashboard() {
       setIsAdmin(true);
     }
     fetchAllData();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (alertsDropdownRef.current && !alertsDropdownRef.current.contains(event.target as Node)) {
+        setShowAlertsDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const fetchAllData = async () => {
@@ -305,6 +319,61 @@ export default function Dashboard() {
 
         
         <div className="flex items-center gap-3">
+          <div className="relative" ref={alertsDropdownRef}>
+            <button
+              onClick={() => setShowAlertsDropdown(prev => !prev)}
+              className="relative p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+              title="Notifications"
+            >
+              <Bell className="w-5 h-5" />
+              {recentAlerts.length > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-semibold">
+                  {recentAlerts.length}
+                </span>
+              )}
+            </button>
+
+            {showAlertsDropdown && (
+              <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-lg z-20 overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-slate-900">Alerts</h3>
+                  <Link
+                    href="/alerts"
+                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                    onClick={() => setShowAlertsDropdown(false)}
+                  >
+                    Show all
+                  </Link>
+                </div>
+                <div className="max-h-80 overflow-y-auto p-2">
+                  {recentAlerts.length === 0 ? (
+                    <p className="text-sm text-slate-500 px-2 py-4 text-center">No active alerts.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {recentAlerts.map(med => {
+                        const isLowStock = med.quantity <= 60;
+                        const isExpiring = new Date(med.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+                        return (
+                          <div
+                            key={med._id}
+                            className={`p-3 rounded-lg border ${isLowStock ? 'bg-red-50/40 border-red-100' : 'bg-amber-50/40 border-amber-100'}`}
+                          >
+                            <p className="text-sm font-medium text-slate-900 truncate">{med.medicineName}</p>
+                            <p className={`text-xs mt-1 ${isLowStock ? 'text-red-700' : 'text-amber-700'}`}>
+                              {isLowStock && `Low stock: ${med.quantity} left. `}
+                              {isExpiring && `Exp: ${new Date(med.expiryDate).toLocaleDateString()}`}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <button 
             onClick={fetchAllData}
             className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all mr-2"
