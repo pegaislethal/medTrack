@@ -138,10 +138,6 @@ export default function MedicinesPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Button variant="outline" className="gap-2 shrink-0">
-          <Filter className="w-4 h-4" />
-          Filter
-        </Button>
       </div>
 
       {loading ? (
