@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const connectDB = require("./config/db");
+const { verifyMailerTransporter } = require("./config/mailer");
 const mainRouter = require("./routes/index.route");
 require("./config/cloudinary");
 const cors = require("cors");
@@ -43,6 +44,9 @@ const server = http.createServer(app);
 
 // DB
 connectDB();
+verifyMailerTransporter().catch((error) => {
+  console.error("Mailer verification failed during startup:", error);
+});
 
 // Middleware
 app.use(cors(corsOptions));
