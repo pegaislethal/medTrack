@@ -46,6 +46,8 @@ const server = http.createServer(app);
 connectDB();
 verifyMailerTransporter().catch((error) => {
   console.error("Mailer verification failed during startup:", error);
+}).then(() => {
+  console.log("Mailer transporter ready");
 });
 
 // Middleware

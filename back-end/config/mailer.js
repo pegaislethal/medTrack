@@ -5,6 +5,12 @@ let verifyPromise;
 
 const createMailerTransporter = () => {
   if (!transporter) {
+    console.log("[mailer] creating singleton transporter", {
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+    });
+
     transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port: 465,
@@ -30,7 +36,10 @@ const verifyMailerTransporter = async () => {
     verifyPromise = createMailerTransporter().verify();
   }
 
-  return verifyPromise;
+  return verifyPromise.then((result) => {
+    console.log("[mailer] transporter verified successfully");
+    return result;
+  });
 };
 
 module.exports = {
