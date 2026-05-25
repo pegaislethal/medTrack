@@ -30,7 +30,7 @@ function KhaltiCallbackContent() {
 
         if (response.success && paymentStatus === "PAID") {
           setState("success");
-          setMessage("Your Khalti payment was verified. You can view it in your purchase history.");
+          setMessage("Your Khalti payment was verified. You can view it in sales history.");
           return;
         }
 
@@ -105,10 +105,10 @@ function KhaltiCallbackContent() {
         <p className="mt-2 text-sm text-slate-600">{message}</p>
         <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
           <Link
-            href="/purchases"
+            href="/sales"
             className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500"
           >
-            View purchases
+            View sales
           </Link>
           <Link
             href="/medicines"

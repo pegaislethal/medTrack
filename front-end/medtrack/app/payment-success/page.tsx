@@ -12,7 +12,7 @@ function PaymentSuccessContent() {
   const pidx = searchParams.get("pidx");
   const [state, setState] = useState<VerificationState>(pidx ? "checking" : "success");
   const [message, setMessage] = useState(
-    pidx ? "Confirming your Khalti payment..." : "Your order was confirmed. You can view it in your purchase history."
+    pidx ? "Confirming your Khalti payment..." : "Your order was confirmed. You can view it in sales history."
   );
 
   useEffect(() => {
@@ -26,7 +26,7 @@ function PaymentSuccessContent() {
 
         if (response.success && status === "PAID") {
           setState("success");
-          setMessage("Your Khalti payment was verified. You can view it in your purchase history.");
+          setMessage("Your Khalti payment was verified. You can view it in sales history.");
           return;
         }
 
@@ -105,10 +105,10 @@ function PaymentSuccessContent() {
         </p>
         <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
           <Link
-            href="/purchases"
+            href="/sales"
             className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500"
           >
-            View purchases
+            View sales
           </Link>
           <Link
             href="/medicines"

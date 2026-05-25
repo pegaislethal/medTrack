@@ -348,7 +348,6 @@ exports.initiateKhaltiPayment = async (req, res) => {
           : {}),
       };
       console.log("[Khalti initiate]", {
-        NODE_ENV: process.env.NODE_ENV || "development",
         FRONTEND_URL: getFrontendBaseUrl(),
         orderId: purchase.orderId,
       });
@@ -359,7 +358,6 @@ exports.initiateKhaltiPayment = async (req, res) => {
       );
 
       console.log("[Khalti initiate]", {
-        NODE_ENV: process.env.NODE_ENV || "development",
         FRONTEND_URL: getFrontendBaseUrl(),
         payment_url: khaltiResponse.payment_url,
         orderId: purchase.orderId,

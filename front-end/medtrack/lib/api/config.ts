@@ -1,8 +1,12 @@
-export const API_BASE_URL = (
+const configuredApiUrl = (
   process.env.NEXT_PUBLIC_API_URL ||
   process.env.VITE_API_URL ||
   "http://localhost:5000/api"
 ).replace(/\/$/, "");
+
+export const API_BASE_URL = configuredApiUrl.endsWith("/api")
+  ? configuredApiUrl
+  : `${configuredApiUrl}/api`;
 
 // API endpoints
 export const API_ENDPOINTS = {

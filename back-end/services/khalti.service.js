@@ -1,25 +1,29 @@
 const axios = require("axios");
 
-const getKhaltiMode = () =>
-  (process.env.NODE_ENV || "development").trim().toLowerCase();
-
-const getKhaltiBaseUrl = () =>
-  getKhaltiMode() === "production"
-    ? "https://khalti.com/api/v2"
-    : "https://dev.khalti.com/api/v2";
+const KHALTI_BASE_URL = "https://dev.khalti.com/api/v2";
 
 const getFrontendBaseUrl = () =>
-  (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
+  (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
 
 const getWebsiteUrl = () => getFrontendBaseUrl();
 
-const getAuthHeaders = () => {
-  if (!process.env.KHALTI_SECRET) {
-    throw new Error("KHALTI_SECRET is missing");
+const getKhaltiSecret = () => {
+  const secret = (process.env.KHALTI_SECRET || "")
+    .trim()
+    .replace(/^["']|["']$/g, "");
+
+  if (!secret) {
+    throw new Error("KHALTI_SECRET is missing in backend environment variables");
   }
 
+  return secret;
+};
+
+const getAuthHeaders = () => {
+  const secret = getKhaltiSecret();
+
   return {
-    Authorization: `Key ${process.env.KHALTI_SECRET}`,
+    Authorization: `Key ${secret}`,
     "Content-Type": "application/json",
   };
 };
@@ -62,9 +66,10 @@ const initiateKhaltiPayment = async (order, user = {}) => {
     customer_info: customerInfo,
   };
 
-  const endpoint = `${getKhaltiBaseUrl()}/epayment/initiate/`;
+  const endpoint = `${KHALTI_BASE_URL}/epayment/initiate/`;
+  console.log("Khalti secret loaded:", Boolean((process.env.KHALTI_SECRET || "").trim()));
+  console.log("Khalti base URL:", KHALTI_BASE_URL);
   console.log("[Khalti initiate request]", {
-    NODE_ENV: getKhaltiMode(),
     endpoint,
     orderId: order.orderId,
     amountInPaisa,
@@ -95,9 +100,10 @@ const verifyKhaltiPayment = async (pidx) => {
     throw new Error("pidx is required");
   }
 
-  const endpoint = `${getKhaltiBaseUrl()}/epayment/lookup/`;
+  const endpoint = `${KHALTI_BASE_URL}/epayment/lookup/`;
+  console.log("Khalti secret loaded:", Boolean((process.env.KHALTI_SECRET || "").trim()));
+  console.log("Khalti base URL:", KHALTI_BASE_URL);
   console.log("[Khalti lookup request]", {
-    NODE_ENV: getKhaltiMode(),
     endpoint,
     pidx,
   });

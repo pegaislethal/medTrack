@@ -79,7 +79,7 @@ export default function TokenExpirationProvider({
         // Redirect to appropriate page based on current route
         if (pathname?.startsWith("/admin")) {
           router.push("/admin");
-        } else if (pathname?.startsWith("/dashboard") || pathname?.startsWith("/medicines") || pathname?.startsWith("/purchases")) {
+        } else if (pathname?.startsWith("/dashboard") || pathname?.startsWith("/medicines") || pathname?.startsWith("/sales")) {
           router.push("/login");
         }
       }
