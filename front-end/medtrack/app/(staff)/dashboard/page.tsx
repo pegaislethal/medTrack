@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getRecentActivities } from "@/lib/api/admin";
 import { getAllMedicines, type Medicine, getPurchaseHistory, getPurchaseAnalytics, type PurchaseHistoryItem, type PurchaseAnalytics } from "@/lib/api/medicine";
 import { Pill, AlertTriangle, PackageOpen, TrendingUp, History, UserPlus, ShoppingCart, Calendar, Download, RefreshCcw, Bell } from "lucide-react";
 import Link from "next/link";
 
-import { getUser } from "@/lib/utils/token";
+import { getUser, isAuthenticated } from "@/lib/utils/token";
 import SalesAnalyticsChart from "@/components/SalesAnalyticsChart";
 import TopMedicinesChart from "@/components/TopMedicinesChart";
 import jsPDF from "jspdf";
@@ -21,6 +22,7 @@ interface Activity {
 }
 
 export default function Dashboard() {
+  const router = useRouter();
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistoryItem[]>([]);
@@ -31,14 +33,32 @@ export default function Dashboard() {
   const [showAlertsDropdown, setShowAlertsDropdown] = useState(false);
   const alertsDropdownRef = useRef<HTMLDivElement | null>(null);
 
+  const redirectToLogin = () => {
+    const user = getUser();
+    router.push(user?.role === "admin" ? "/admin" : "/login");
+  };
+
+  const isAuthError = (err: unknown) => {
+    const error = err as { statusCode?: number; message?: string };
+    return (
+      error?.statusCode === 401 ||
+      error?.message === "No authentication token found"
+    );
+  };
+
 
   useEffect(() => {
+    if (!isAuthenticated()) {
+      redirectToLogin();
+      return;
+    }
+
     const user = getUser();
     if (user && user.role === 'admin') {
       setIsAdmin(true);
     }
     fetchAllData();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -52,6 +72,12 @@ export default function Dashboard() {
   }, []);
 
   const fetchAllData = async () => {
+    if (!isAuthenticated()) {
+      redirectToLogin();
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -63,6 +89,11 @@ export default function Dashboard() {
       ]);
 
     } catch (err: any) {
+      if (isAuthError(err)) {
+        redirectToLogin();
+        return;
+      }
+
       setError("Failed to load dashboard data. Please try again.");
       console.error(err);
     } finally {
@@ -77,7 +108,12 @@ export default function Dashboard() {
       if (response.success && response.data) {
         setActivities(response.data);
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      if (isAuthError(err)) {
+        redirectToLogin();
+        return;
+      }
+
       console.error(err);
     }
   };
@@ -95,7 +131,12 @@ export default function Dashboard() {
       if (response.success && response.data) {
         setPurchaseHistory(response.data);
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      if (isAuthError(err)) {
+        redirectToLogin();
+        return;
+      }
+
       console.error("Failed to fetch purchase history:", err);
     }
   };
@@ -106,7 +147,12 @@ export default function Dashboard() {
       if (response.success && response.data) {
         setAnalytics(response.data);
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      if (isAuthError(err)) {
+        redirectToLogin();
+        return;
+      }
+
       console.error("Failed to fetch purchase analytics:", err);
     }
   };

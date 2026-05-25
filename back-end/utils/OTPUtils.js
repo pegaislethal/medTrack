@@ -1,5 +1,10 @@
 const otpGenerator = require("otp-generator");
-const sendOtpEmail = require("./sendOtpEmail");
+const { sendEmail } = require("./sendEmail");
+const {
+  verify_account_boilerplate,
+  reset_password_boilerplate,
+  verify_login_boilerplate,
+} = require("./boilerplate.data");
 
 const generateOTP = () => {
   const otp = otpGenerator
@@ -16,15 +21,27 @@ const generateOTP = () => {
 };
 
 const sendVerificationEmail = async (email, fullName, otp) => {
-  return sendOtpEmail(email, otp, "account verification");
+  return sendEmail(
+    email,
+    verify_account_boilerplate(otp, fullName),
+    "Verify Your Account"
+  );
 };
 
 const sendPasswordResetEmail = async (email, fullName, otp) => {
-  return sendOtpEmail(email, otp, "password reset");
+  return sendEmail(
+    email,
+    reset_password_boilerplate(otp, fullName),
+    "Password Reset OTP"
+  );
 };
 
 const sendLoginEmail = async (email, fullName, otp) => {
-  return sendOtpEmail(email, otp, "login verification");
+  return sendEmail(
+    email,
+    verify_login_boilerplate(otp, fullName),
+    "Verify Login OTP"
+  );
 };
 
 module.exports = {

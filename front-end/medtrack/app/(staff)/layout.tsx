@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
@@ -12,12 +12,25 @@ export default function StaffLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const [canRender, setCanRender] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push("/admin");
-    }
+    const authCheck = window.setTimeout(() => {
+      if (!isAuthenticated()) {
+        router.push("/admin");
+        setCanRender(false);
+        return;
+      }
+
+      setCanRender(true);
+    }, 0);
+
+    return () => window.clearTimeout(authCheck);
   }, [router]);
+
+  if (!canRender) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex">

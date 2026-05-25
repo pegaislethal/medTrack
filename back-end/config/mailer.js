@@ -72,7 +72,6 @@ const createMailerTransporter = () => {
 const verifyMailerTransporter = async () => {
   const mailerTransporter = createMailerTransporter();
   if (!mailerTransporter) {
-    console.log("[mailer] verification skipped (mailer disabled)");
     return false;
   }
 

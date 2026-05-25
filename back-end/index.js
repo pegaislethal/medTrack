@@ -45,13 +45,7 @@ const server = http.createServer(app);
 // DB
 connectDB();
 verifyMailerTransporter()
-  .then((verified) => {
-    if (verified) {
-      console.log("Mailer transporter ready");
-    } else {
-      console.log("Mailer transporter disabled");
-    }
-  })
+  .then(() => {})
   .catch((error) => {
     console.error("Mailer verification failed during startup:", error);
   });
