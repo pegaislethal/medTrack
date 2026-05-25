@@ -44,16 +44,30 @@ const server = http.createServer(app);
 
 // DB
 connectDB();
-verifyMailerTransporter().catch((error) => {
-  console.error("Mailer verification failed during startup:", error);
-}).then(() => {
-  console.log("Mailer transporter ready");
-});
+verifyMailerTransporter()
+  .then((verified) => {
+    if (verified) {
+      console.log("Mailer transporter ready");
+    } else {
+      console.log("Mailer transporter disabled");
+    }
+  })
+  .catch((error) => {
+    console.error("Mailer verification failed during startup:", error);
+  });
 
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.get("/", (req, res) => {
+  res.send("MedTrack backend is running");
+});
+
+app.get("/favicon.ico", (req, res) => {
+  res.status(204).end();
+});
 
 // Routes
 app.use("/api", mainRouter);
@@ -95,8 +109,10 @@ io.on("connection", (socket) => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+if (!process.env.VERCEL) {
+  server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}
 
 module.exports = app;

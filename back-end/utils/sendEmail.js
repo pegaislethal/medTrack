@@ -4,6 +4,14 @@ const { createMailerTransporter } = require("../config/mailer");
 const sendEmail = async (email, html, subject, cc = [], bcc = []) => {
   try {
     const transporter = createMailerTransporter();
+    if (!transporter) {
+      console.warn("[mailer] sendEmail skipped because mailer is disabled", {
+        to: email,
+        subject,
+      });
+      return { success: false, error: "MAILER_DISABLED" };
+    }
+
     const startedAt = Date.now();
 
     console.log("[mailer] sendEmail started", {

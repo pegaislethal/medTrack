@@ -18,6 +18,54 @@ export default function TokenExpirationProvider({
   const pathname = usePathname();
 
   useEffect(() => {
+    const reloadKey = "medtrack_chunk_reload_attempted";
+
+    const handleChunkLoadError = (event: Event) => {
+      const rejection = event as PromiseRejectionEvent;
+      const reason = "reason" in rejection ? rejection.reason : undefined;
+      const message =
+        typeof reason === "string"
+          ? reason
+          : reason instanceof Error
+            ? reason.message
+            : "";
+
+      const isChunkLoadError =
+        reason?.name === "ChunkLoadError" ||
+        message.includes("ChunkLoadError") ||
+        message.includes("Failed to load chunk") ||
+        message.includes("Loading chunk");
+
+      if (!isChunkLoadError) {
+        return;
+      }
+
+      if (sessionStorage.getItem(reloadKey) === "1") {
+        console.error("[chunk] ChunkLoadError repeated after reload, giving up", {
+          pathname,
+          message,
+        });
+        return;
+      }
+
+      sessionStorage.setItem(reloadKey, "1");
+      console.warn("[chunk] ChunkLoadError detected, reloading page once", {
+        pathname,
+        message,
+      });
+      window.location.reload();
+    };
+
+    window.addEventListener("unhandledrejection", handleChunkLoadError);
+    window.addEventListener("error", handleChunkLoadError);
+
+    return () => {
+      window.removeEventListener("unhandledrejection", handleChunkLoadError);
+      window.removeEventListener("error", handleChunkLoadError);
+    };
+  }, [pathname]);
+
+  useEffect(() => {
     // Check token expiration immediately
     const checkExpiration = () => {
       // Allow public routes that don't need a token

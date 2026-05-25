@@ -39,8 +39,8 @@ const registerAdmin = async (req, res) => {
     });
 
     // Send OTP via email
+    console.log("Admin signup OTP:", otp);
     await sendVerificationEmail(email, fullname, otp);
-      console.log("Admin  signup otp",otp);
     res.status(StatusCodes.CREATED).json({
       status: "otp_required",
       message: "Please verify your email with OTP to complete registration",
@@ -147,8 +147,8 @@ const loginAdmin = async (req, res) => {
     const otp = generateOTP().otp;
     admin.otp = otp;
     await admin.save();
-      console.log("Admin  login otp",otp);
 
+    console.log("Admin login OTP:", otp);
     await sendLoginEmail(email, admin.fullname, otp);
 
     return res.status(StatusCodes.OK).json({

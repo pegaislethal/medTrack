@@ -1,10 +1,5 @@
 const otpGenerator = require("otp-generator");
-const { sendEmail } = require("./sendEmail");
-const {
-  verify_account_boilerplate,
-  reset_password_boilerplate,
-  verify_login_boilerplate,
-} = require("./boilerplate.data");
+const sendOtpEmail = require("./sendOtpEmail");
 
 const generateOTP = () => {
   const otp = otpGenerator
@@ -21,57 +16,15 @@ const generateOTP = () => {
 };
 
 const sendVerificationEmail = async (email, fullName, otp) => {
-  console.log("[otp] sending verification email", {
-    email,
-    fullName,
-  });
-  const emailResponse = await sendEmail(
-    email,
-    verify_account_boilerplate(otp, fullName),
-    "Verify Your Account"
-  );
-  console.log("[otp] verification email result", {
-    email,
-    success: emailResponse.success,
-    error: emailResponse.error,
-  });
-  return emailResponse;
+  return sendOtpEmail(email, otp, "account verification");
 };
 
 const sendPasswordResetEmail = async (email, fullName, otp) => {
-  console.log("[otp] sending password reset email", {
-    email,
-    fullName,
-  });
-  const emailResponse = await sendEmail(
-    email,
-    reset_password_boilerplate(otp, fullName),
-    "Password Reset OTP"
-  );
-  console.log("[otp] password reset email result", {
-    email,
-    success: emailResponse.success,
-    error: emailResponse.error,
-  });
-  return emailResponse;
+  return sendOtpEmail(email, otp, "password reset");
 };
 
 const sendLoginEmail = async (email, fullName, otp) => {
-  console.log("[otp] sending login email", {
-    email,
-    fullName,
-  });
-  const emailResponse = await sendEmail(
-    email,
-    verify_login_boilerplate(otp, fullName),
-    "Verify Login OTP"
-  );
-  console.log("[otp] login email result", {
-    email,
-    success: emailResponse.success,
-    error: emailResponse.error,
-  });
-  return emailResponse;
+  return sendOtpEmail(email, otp, "login verification");
 };
 
 module.exports = {

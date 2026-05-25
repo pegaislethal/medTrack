@@ -1,9 +1,10 @@
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
 
 // Ensure uploads directory exists
-const uploadDir = path.join(__dirname, "../uploads");
+const uploadDir = path.join(os.tmpdir(), "medtrack-uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }

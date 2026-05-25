@@ -40,8 +40,8 @@ const registerUser = async (req, res) => {
     const savedUser = await newUser.save();
 
     // Send OTP via email
+    console.log("User signup OTP:", otp);
     await sendVerificationEmail(email, fullname, otp);
-      console.log("user  signup otp",otp);
     res.status(StatusCodes.CREATED).json({
       status: "otp_required",
       message: "Please verify your email with OTP to complete registration",
@@ -149,7 +149,7 @@ const loginUser = async (req, res) => {
     if (!user.profilePicture || typeof user.profilePicture !== "object") {
       user.profilePicture = {};
     }
-    console.log("User  login otp",otp);
+    console.log("User login OTP:", otp);
     await user.save();
 
     await sendLoginEmail(email, user.fullname, otp);
@@ -233,6 +233,7 @@ const requestPasswordReset = async (req, res) => {
     user.otp = otp;
     await user.save();
 
+    console.log("User password reset OTP:", otp);
     await sendPasswordResetEmail(email, user.fullname, otp);
 
     res.status(StatusCodes.OK).json({
