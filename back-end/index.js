@@ -14,8 +14,7 @@ const defaultCorsOrigins = [
   "http://localhost:3001",
   "http://localhost:3002",
   "http://localhost:3003",
-  "https://med-track-jgt2.vercel.app"
-
+  "http://localhost:5173",
 ];
 
 const extraOrigins = (process.env.CORS_ORIGINS || "")
@@ -23,9 +22,13 @@ const extraOrigins = (process.env.CORS_ORIGINS || "")
   .map((s) => s.trim())
   .filter(Boolean);
 
-const allowedOrigins = [...defaultCorsOrigins, ...extraOrigins].map((o) =>
-  o.replace(/\/$/, "")
-);
+const allowedOrigins = [
+  ...defaultCorsOrigins,
+  process.env.FRONTEND_URL,
+  ...extraOrigins,
+]
+  .filter(Boolean)
+  .map((o) => o.replace(/\/$/, ""));
 
 const corsOptions = {
   origin(origin, callback) {

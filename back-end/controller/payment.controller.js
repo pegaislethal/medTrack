@@ -9,13 +9,9 @@ const {
   verifyKhaltiPayment: verifyRealKhaltiPayment,
   toPaisa,
 } = require("../services/khalti.service");
-const {
-  initiateMockKhaltiPayment,
-  verifyMockKhaltiPayment,
-} = require("../services/mockKhalti.service");
 
 const getFrontendBaseUrl = () =>
-  (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
+  (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
 
 const buildPaymentQrUrl = (amount, orderId) => {
   const merchantCode = process.env.ESEWA_MERCHANT_CODE || "EPAYTEST";
@@ -30,9 +26,6 @@ const mapKhaltiStatusToPaymentStatus = (status) => {
   if (status === "Pending" || status === "Initiated") return "PENDING";
   return "FAILED";
 };
-
-const isMockPaymentMode = () =>
-  (process.env.PAYMENT_MODE || "").trim().toLowerCase() === "mock";
 
 const confirmPaymentByOrderId = async (orderId, transactionId) => {
   const io = getSocketOrNull();
@@ -202,7 +195,13 @@ exports.initiatePayment = async (req, res) => {
 
 exports.initiateKhaltiPayment = async (req, res) => {
   try {
-    const { medicine: medicineId, quantity, unitPrice, customerInfo = {} } = req.body;
+    const {
+      orderId: existingOrderId,
+      medicine: medicineId,
+      quantity,
+      unitPrice,
+      customerInfo = {},
+    } = req.body;
     const buyerId = req.user?.userId || req.user?.id || req.userId;
 
     if (req.user?.role === "admin") {
@@ -216,76 +215,116 @@ exports.initiateKhaltiPayment = async (req, res) => {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    const qty = Number(quantity);
-    const clientUnit = Number(unitPrice);
+    let purchase;
 
-    if (!Number.isInteger(qty) || qty <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Quantity must be a positive integer",
+    if (existingOrderId) {
+      purchase = await Purchase.findOne({ orderId: existingOrderId });
+      if (!purchase) {
+        return res.status(404).json({ success: false, message: "Order not found" });
+      }
+
+      if (!purchase.buyer || purchase.buyer.toString() !== buyerId.toString()) {
+        return res.status(403).json({ success: false, message: "Not allowed" });
+      }
+
+      if (purchase.paymentStatus === "PAID") {
+        return res.status(400).json({
+          success: false,
+          message: "Order is already paid",
+        });
+      }
+    } else {
+      const qty = Number(quantity);
+      const clientUnit = Number(unitPrice);
+
+      if (!Number.isInteger(qty) || qty <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Quantity must be a positive integer",
+        });
+      }
+
+      const medicine = await Medicine.findById(medicineId);
+      if (!medicine) {
+        return res.status(404).json({
+          success: false,
+          message: "Medicine not found",
+        });
+      }
+
+      if (medicine.quantity < qty) {
+        return res.status(400).json({
+          success: false,
+          message: "Insufficient stock available",
+        });
+      }
+
+      if (Math.abs(Number(medicine.price) - clientUnit) > 0.01) {
+        return res.status(400).json({
+          success: false,
+          message: "Price mismatch - refresh and try again",
+        });
+      }
+
+      const totalPrice = qty * medicine.price;
+      if (totalPrice < 10) {
+        return res.status(400).json({
+          success: false,
+          message: "Khalti minimum payment amount is Rs. 10",
+        });
+      }
+
+      purchase = await Purchase.create({
+        medicine: medicine._id,
+        buyer: buyerId,
+        quantity: qty,
+        unitPrice: medicine.price,
+        totalPrice,
+        orderId: randomUUID(),
+        paymentStatus: "PENDING",
+        paymentMethod: "Khalti",
+        customerName: customerInfo.customerName,
+        customerAddress: customerInfo.customerAddress,
+        customerPhone: customerInfo.customerPhone,
+        prescription: customerInfo.prescription,
       });
     }
 
-    const medicine = await Medicine.findById(medicineId);
-    if (!medicine) {
-      return res.status(404).json({
-        success: false,
-        message: "Medicine not found",
-      });
-    }
-
-    if (medicine.quantity < qty) {
-      return res.status(400).json({
-        success: false,
-        message: "Insufficient stock available",
-      });
-    }
-
-    if (Math.abs(Number(medicine.price) - clientUnit) > 0.01) {
-      return res.status(400).json({
-        success: false,
-        message: "Price mismatch - refresh and try again",
-      });
-    }
-
-    const totalPrice = qty * medicine.price;
-    if (totalPrice < 10) {
+    if (purchase.totalPrice < 10) {
       return res.status(400).json({
         success: false,
         message: "Khalti minimum payment amount is Rs. 10",
       });
     }
 
-    const orderId = randomUUID();
-    const purchase = await Purchase.create({
-      medicine: medicine._id,
-      buyer: buyerId,
-      quantity: qty,
-      unitPrice: medicine.price,
-      totalPrice,
-      orderId,
-      paymentStatus: "PENDING",
-      paymentMethod: "Khalti",
-      customerName: customerInfo.customerName,
-      customerAddress: customerInfo.customerAddress,
-      customerPhone: customerInfo.customerPhone,
-      prescription: customerInfo.prescription,
-    });
-
     try {
-      const user = await User.findById(buyerId).select("fullname email");
+      const user = await User.findById(buyerId).select("fullname email phone");
       const orderPayload = {
-        orderId,
-        totalPrice,
+        orderId: purchase.orderId,
+        totalPrice: purchase.totalPrice,
       };
       const customerPayload = {
-        name: customerInfo.customerName || user?.fullname,
+        name: customerInfo.customerName || purchase.customerName || user?.fullname,
         email: user?.email,
-        phone: customerInfo.customerPhone,
+        phone: customerInfo.customerPhone || purchase.customerPhone || user?.phone,
       };
-      const khaltiResponse = isMockPaymentMode()
-        ? await initiateMockKhaltiPayment(orderPayload, customerPayload)
-        : await initiateRealKhaltiPayment(orderPayload, customerPayload);
+      console.log("[Khalti initiate]", {
+        KHALTI_MODE: process.env.KHALTI_MODE || "sandbox",
+        FRONTEND_URL: getFrontendBaseUrl(),
+        orderId: purchase.orderId,
+      });
+
+      const khaltiResponse = await initiateRealKhaltiPayment(
+        orderPayload,
+        customerPayload
+      );
+
+      console.log("[Khalti initiate]", {
+        KHALTI_MODE: process.env.KHALTI_MODE || "sandbox",
+        FRONTEND_URL: getFrontendBaseUrl(),
+        payment_url: khaltiResponse.payment_url,
+        orderId: purchase.orderId,
+      });
 
       purchase.pidx = khaltiResponse.pidx;
       purchase.khaltiStatus = khaltiResponse.status || "Initiated";
@@ -293,10 +332,13 @@ exports.initiateKhaltiPayment = async (req, res) => {
 
       return res.json({
         success: true,
+        pidx: khaltiResponse.pidx,
+        payment_url: khaltiResponse.payment_url,
+        message: "Khalti payment initiated successfully",
         data: {
-          orderId,
+          orderId: purchase.orderId,
           pidx: khaltiResponse.pidx,
-          amount: totalPrice,
+          amount: purchase.totalPrice,
           payment_url: khaltiResponse.payment_url,
           expires_at: khaltiResponse.expires_at,
           expires_in: khaltiResponse.expires_in,
@@ -314,22 +356,29 @@ exports.initiateKhaltiPayment = async (req, res) => {
         data: khaltiError.response?.data,
       });
 
+      const failureDetail =
+        khaltiError.response?.data?.detail ||
+        khaltiError.response?.data?.message ||
+        khaltiError.message;
+
       return res.status(502).json({
         success: false,
-        message: "Khalti payment initiation failed",
+        message: failureDetail
+          ? `Khalti payment initiation failed: ${failureDetail}`
+          : "Khalti payment initiation failed",
       });
     }
   } catch (err) {
     console.error("initiateKhaltiPayment:", err);
     return res.status(500).json({
       success: false,
-      message: "Payment init failed",
+      message: err.message ? `Payment init failed: ${err.message}` : "Payment init failed",
     });
   }
 };
 
 exports.verifyKhaltiPayment = async (req, res) => {
-  const { pidx, status } = req.body || {};
+  const { pidx, orderId } = req.body || {};
   const buyerId = req.user?.userId || req.user?.id || req.userId;
 
   if (!buyerId) {
@@ -341,7 +390,9 @@ exports.verifyKhaltiPayment = async (req, res) => {
   }
 
   try {
-    const purchase = await Purchase.findOne({ pidx });
+    const purchase = await Purchase.findOne(
+      orderId ? { $or: [{ pidx }, { orderId }] } : { pidx }
+    );
     if (!purchase) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
@@ -350,9 +401,7 @@ exports.verifyKhaltiPayment = async (req, res) => {
       return res.status(403).json({ success: false, message: "Not allowed" });
     }
 
-    const lookup = isMockPaymentMode()
-      ? await verifyMockKhaltiPayment(pidx, status)
-      : await verifyRealKhaltiPayment(pidx);
+    const lookup = await verifyRealKhaltiPayment(pidx);
     const paymentStatus = mapKhaltiStatusToPaymentStatus(lookup.status);
 
     if (lookup.total_amount && lookup.total_amount !== toPaisa(purchase.totalPrice)) {
@@ -394,7 +443,8 @@ exports.verifyKhaltiPayment = async (req, res) => {
 
       return res.json({
         success: true,
-        message: "Khalti payment verified",
+        status: lookup.status,
+        message: "Payment verified successfully",
         data: {
           status: "PAID",
           khaltiStatus: lookup.status,
@@ -419,7 +469,8 @@ exports.verifyKhaltiPayment = async (req, res) => {
     }
 
     return res.json({
-      success: paymentStatus === "PENDING",
+      success: false,
+      status: lookup.status,
       message:
         paymentStatus === "PENDING"
           ? "Khalti payment is still pending"

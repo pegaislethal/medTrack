@@ -63,6 +63,7 @@ export interface ConfirmPaymentResponse {
 
 export interface VerifyKhaltiPaymentResponse {
   success: boolean;
+  status?: string;
   message?: string;
   data?: {
     status: "PAID" | "PENDING" | "FAILED";
@@ -162,7 +163,7 @@ export const initiateKhaltiPayment = async (
 
 export const verifyKhaltiPayment = async (
   pidx: string,
-  status?: string | null
+  orderId?: string | null
 ): Promise<VerifyKhaltiPaymentResponse> => {
   const token = getToken();
   if (!token) {
@@ -178,7 +179,7 @@ export const verifyKhaltiPayment = async (
     {
       method: "POST",
       headers: getAuthHeader() as HeadersInit,
-      body: JSON.stringify({ pidx, status }),
+      body: JSON.stringify({ pidx, orderId }),
     }
   );
 };

@@ -1,15 +1,18 @@
 const axios = require("axios");
 
+const getKhaltiMode = () =>
+  (process.env.KHALTI_MODE || "sandbox").trim().toLowerCase();
+
 const getKhaltiBaseUrl = () =>
-  process.env.NODE_ENV === "production"
+  getKhaltiMode() === "production"
     ? "https://khalti.com/api/v2"
     : "https://dev.khalti.com/api/v2";
 
 const getFrontendBaseUrl = () =>
-  (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
+  (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
 
 const getWebsiteUrl = () =>
-  (process.env.FRONTEND_URL || process.env.BACKEND_URL || "http://localhost:3000").replace(/\/$/, "");
+  (process.env.FRONTEND_URL || process.env.BACKEND_URL || "http://localhost:5173").replace(/\/$/, "");
 
 const getAuthHeaders = () => {
   if (!process.env.KHALTI_SECRET) {
@@ -30,10 +33,13 @@ const initiateKhaltiPayment = async (order, user = {}) => {
     throw new Error("Khalti minimum payment amount is Rs. 10");
   }
 
+  const amountInPaisa = toPaisa(amount);
+  const returnUrl = `${getFrontendBaseUrl()}/payment/khalti/callback`;
+  const websiteUrl = getWebsiteUrl();
   const payload = {
-    return_url: `${getFrontendBaseUrl()}/payment-success`,
-    website_url: getWebsiteUrl(),
-    amount: toPaisa(amount),
+    return_url: returnUrl,
+    website_url: websiteUrl,
+    amount: amountInPaisa,
     purchase_order_id: order.orderId,
     purchase_order_name: "MedTrack Medicine Order",
     customer_info: {
@@ -43,13 +49,32 @@ const initiateKhaltiPayment = async (order, user = {}) => {
     },
   };
 
-  const response = await axios.post(
-    `${getKhaltiBaseUrl()}/epayment/initiate/`,
-    payload,
-    { headers: getAuthHeaders() }
-  );
+  const endpoint = `${getKhaltiBaseUrl()}/epayment/initiate/`;
+  console.log("[Khalti initiate request]", {
+    KHALTI_MODE: getKhaltiMode(),
+    endpoint,
+    orderId: order.orderId,
+    amountInPaisa,
+    return_url: returnUrl,
+    website_url: websiteUrl,
+  });
 
-  return response.data;
+  try {
+    const response = await axios.post(endpoint, payload, {
+      headers: getAuthHeaders(),
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error("[Khalti initiate error]", {
+      endpoint,
+      orderId: order.orderId,
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+    throw error;
+  }
 };
 
 const verifyKhaltiPayment = async (pidx) => {
@@ -57,18 +82,26 @@ const verifyKhaltiPayment = async (pidx) => {
     throw new Error("pidx is required");
   }
 
-  const response = await axios.post(
-    `${getKhaltiBaseUrl()}/epayment/lookup/`,
-    { pidx },
-    {
-      headers: getAuthHeaders(),
-      validateStatus: () => true,
-    }
-  );
+  const endpoint = `${getKhaltiBaseUrl()}/epayment/lookup/`;
+  console.log("[Khalti lookup request]", {
+    KHALTI_MODE: getKhaltiMode(),
+    endpoint,
+    pidx,
+  });
+
+  const response = await axios.post(endpoint, { pidx }, {
+    headers: getAuthHeaders(),
+    validateStatus: () => true,
+  });
 
   if (response.status >= 400 && !response.data?.status) {
     const error = new Error(response.data?.detail || "Khalti lookup failed");
     error.response = response;
+    console.error("[Khalti lookup error]", {
+      endpoint,
+      status: response.status,
+      data: response.data,
+    });
     throw error;
   }
 

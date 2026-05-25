@@ -170,7 +170,13 @@ export default function BillingPage() {
       setShowReceipt(true);
       fetchMedicines(); // Refresh stock
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Checkout failed";
+      console.error("Checkout failed:", err);
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" && err !== null && "message" in err
+            ? String((err as { message?: unknown }).message)
+            : "Checkout failed";
       alert("Checkout failed: " + message);
     } finally {
       setIsCheckingOut(false);

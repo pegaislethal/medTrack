@@ -7,30 +7,34 @@ import { verifyKhaltiPayment } from "@/lib/api/payment";
 
 type VerificationState = "checking" | "success" | "pending" | "failed";
 
-function PaymentSuccessContent() {
+function KhaltiCallbackContent() {
   const searchParams = useSearchParams();
   const pidx = searchParams.get("pidx");
-  const [state, setState] = useState<VerificationState>(pidx ? "checking" : "success");
-  const [message, setMessage] = useState(
-    pidx ? "Confirming your Khalti payment..." : "Your order was confirmed. You can view it in your purchase history."
-  );
+  const callbackStatus = searchParams.get("status");
+  const [state, setState] = useState<VerificationState>("checking");
+  const [message, setMessage] = useState("Verifying your Khalti payment...");
 
   useEffect(() => {
-    if (!pidx) return;
+    if (!pidx) {
+      setState("failed");
+      setMessage("Khalti did not return a payment reference.");
+      return;
+    }
 
     const verifyPayment = async () => {
       try {
         const response = await verifyKhaltiPayment(pidx);
-        const status = response.data?.status;
-        const khaltiStatus = response.data?.khaltiStatus || response.status;
+        const paymentStatus = response.data?.status;
+        const khaltiStatus =
+          response.data?.khaltiStatus || response.status || callbackStatus;
 
-        if (response.success && status === "PAID") {
+        if (response.success && paymentStatus === "PAID") {
           setState("success");
           setMessage("Your Khalti payment was verified. You can view it in your purchase history.");
           return;
         }
 
-        if (status === "PENDING") {
+        if (paymentStatus === "PENDING") {
           setState("pending");
           setMessage(`Your Khalti payment is ${khaltiStatus || "pending"}. Please check again later.`);
           return;
@@ -40,20 +44,18 @@ function PaymentSuccessContent() {
         setMessage(`Khalti payment was not completed${khaltiStatus ? `: ${khaltiStatus}` : ""}.`);
       } catch (err: unknown) {
         setState("failed");
-        const message =
+        const errorMessage =
           err instanceof Error
             ? err.message
             : typeof err === "object" && err !== null && "message" in err
               ? String((err as { message?: unknown }).message)
               : "Khalti payment verification failed.";
-        setMessage(
-          message || "Khalti payment verification failed."
-        );
+        setMessage(errorMessage || "Khalti payment verification failed.");
       }
     };
 
     verifyPayment();
-  }, [pidx]);
+  }, [pidx, callbackStatus]);
 
   const isSuccess = state === "success";
   const isChecking = state === "checking";
@@ -100,9 +102,7 @@ function PaymentSuccessContent() {
                 ? "Payment pending"
                 : "Payment not completed"}
         </h1>
-        <p className="mt-2 text-sm text-slate-600">
-          {message}
-        </p>
+        <p className="mt-2 text-sm text-slate-600">{message}</p>
         <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
           <Link
             href="/purchases"
@@ -122,7 +122,7 @@ function PaymentSuccessContent() {
   );
 }
 
-export default function PaymentSuccessPage() {
+export default function KhaltiCallbackPage() {
   return (
     <Suspense
       fallback={
@@ -131,7 +131,7 @@ export default function PaymentSuccessPage() {
         </div>
       }
     >
-      <PaymentSuccessContent />
+      <KhaltiCallbackContent />
     </Suspense>
   );
 }
