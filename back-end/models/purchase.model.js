@@ -27,6 +27,10 @@ const purchaseSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    totalAmount: {
+      type: Number,
+      min: 0,
+    },
 
     // Payment related fields
     orderId: {
@@ -52,6 +56,13 @@ const purchaseSchema = new mongoose.Schema(
     },
     khaltiStatus: {
       type: String,
+    },
+    paidAt: {
+      type: Date,
+    },
+    stockReduced: {
+      type: Boolean,
+      default: false,
     },
     
     // Customer Info Fields

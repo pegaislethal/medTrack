@@ -11,7 +11,16 @@ const {
 } = require("../services/khalti.service");
 
 const getFrontendBaseUrl = () =>
-  (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
+  (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
+
+const getPendingKhaltiOrderFilter = (buyerId, medicineId, qty, unitPrice) => ({
+  buyer: buyerId,
+  medicine: medicineId,
+  quantity: qty,
+  unitPrice,
+  paymentMethod: "Khalti",
+  paymentStatus: "PENDING",
+});
 
 const buildPaymentQrUrl = (amount, orderId) => {
   const merchantCode = process.env.ESEWA_MERCHANT_CODE || "EPAYTEST";
@@ -27,7 +36,11 @@ const mapKhaltiStatusToPaymentStatus = (status) => {
   return "FAILED";
 };
 
-const confirmPaymentByOrderId = async (orderId, transactionId) => {
+const confirmPaymentByOrderId = async (
+  orderId,
+  transactionId,
+  paymentMeta = {}
+) => {
   const io = getSocketOrNull();
 
   const purchase = await Purchase.findOne({ orderId });
@@ -35,7 +48,19 @@ const confirmPaymentByOrderId = async (orderId, transactionId) => {
     return { ok: false, code: "order_not_found" };
   }
 
-  if (purchase.paymentStatus === "PAID") {
+  const settlementTime = purchase.paidAt || new Date();
+  const settlementTotal =
+    paymentMeta.totalAmount ?? purchase.totalAmount ?? purchase.totalPrice;
+
+  if (purchase.paymentStatus === "PAID" || purchase.stockReduced) {
+    await Purchase.findByIdAndUpdate(purchase._id, {
+      paymentStatus: "PAID",
+      transactionId: transactionId || purchase.transactionId,
+      totalAmount: settlementTotal,
+      paidAt: settlementTime,
+      stockReduced: true,
+    });
+
     return { ok: true, already: true };
   }
 
@@ -61,6 +86,9 @@ const confirmPaymentByOrderId = async (orderId, transactionId) => {
     {
       paymentStatus: "PAID",
       transactionId: transactionId || "N/A",
+      totalAmount: settlementTotal,
+      paidAt: settlementTime,
+      stockReduced: true,
     },
     { new: true }
   );
@@ -267,33 +295,39 @@ exports.initiateKhaltiPayment = async (req, res) => {
       }
 
       const totalPrice = qty * medicine.price;
-      if (totalPrice < 10) {
+      if (totalPrice <= 10) {
         return res.status(400).json({
           success: false,
-          message: "Khalti minimum payment amount is Rs. 10",
+          message: "Khalti minimum payment amount is greater than Rs. 10",
         });
       }
 
-      purchase = await Purchase.create({
-        medicine: medicine._id,
-        buyer: buyerId,
-        quantity: qty,
-        unitPrice: medicine.price,
-        totalPrice,
-        orderId: randomUUID(),
-        paymentStatus: "PENDING",
-        paymentMethod: "Khalti",
-        customerName: customerInfo.customerName,
-        customerAddress: customerInfo.customerAddress,
-        customerPhone: customerInfo.customerPhone,
-        prescription: customerInfo.prescription,
-      });
+      purchase =
+        (await Purchase.findOne(
+          getPendingKhaltiOrderFilter(buyerId, medicine._id, qty, medicine.price)
+        )) ||
+        (await Purchase.create({
+          medicine: medicine._id,
+          buyer: buyerId,
+          quantity: qty,
+          unitPrice: medicine.price,
+          totalPrice,
+          totalAmount: totalPrice,
+          orderId: randomUUID(),
+          paymentStatus: "PENDING",
+          paymentMethod: "Khalti",
+          stockReduced: false,
+          customerName: customerInfo.customerName,
+          customerAddress: customerInfo.customerAddress,
+          customerPhone: customerInfo.customerPhone,
+          prescription: customerInfo.prescription,
+        }));
     }
 
-    if (purchase.totalPrice < 10) {
+    if (purchase.totalPrice <= 10) {
       return res.status(400).json({
         success: false,
-        message: "Khalti minimum payment amount is Rs. 10",
+        message: "Khalti minimum payment amount is greater than Rs. 10",
       });
     }
 
@@ -304,12 +338,17 @@ exports.initiateKhaltiPayment = async (req, res) => {
         totalPrice: purchase.totalPrice,
       };
       const customerPayload = {
-        name: customerInfo.customerName || purchase.customerName || user?.fullname,
+        name: user?.fullname || purchase.customerName,
         email: user?.email,
-        phone: customerInfo.customerPhone || purchase.customerPhone || user?.phone,
+        ...(customerInfo.customerPhone || purchase.customerPhone || user?.phone
+          ? {
+              phone:
+                customerInfo.customerPhone || purchase.customerPhone || user?.phone,
+            }
+          : {}),
       };
       console.log("[Khalti initiate]", {
-        KHALTI_MODE: process.env.KHALTI_MODE || "sandbox",
+        NODE_ENV: process.env.NODE_ENV || "development",
         FRONTEND_URL: getFrontendBaseUrl(),
         orderId: purchase.orderId,
       });
@@ -320,7 +359,7 @@ exports.initiateKhaltiPayment = async (req, res) => {
       );
 
       console.log("[Khalti initiate]", {
-        KHALTI_MODE: process.env.KHALTI_MODE || "sandbox",
+        NODE_ENV: process.env.NODE_ENV || "development",
         FRONTEND_URL: getFrontendBaseUrl(),
         payment_url: khaltiResponse.payment_url,
         orderId: purchase.orderId,
@@ -328,6 +367,9 @@ exports.initiateKhaltiPayment = async (req, res) => {
 
       purchase.pidx = khaltiResponse.pidx;
       purchase.khaltiStatus = khaltiResponse.status || "Initiated";
+      purchase.paymentMethod = "Khalti";
+      purchase.paymentStatus = "PENDING";
+      purchase.totalAmount = purchase.totalAmount ?? purchase.totalPrice;
       await purchase.save();
 
       return res.json({
@@ -408,6 +450,7 @@ exports.verifyKhaltiPayment = async (req, res) => {
       await Purchase.findByIdAndUpdate(purchase._id, {
         paymentStatus: "FAILED",
         khaltiStatus: "Amount mismatch",
+        totalAmount: lookup.total_amount,
       });
 
       return res.status(400).json({
@@ -420,14 +463,9 @@ exports.verifyKhaltiPayment = async (req, res) => {
     if (lookup.status === "Completed") {
       const result = await confirmPaymentByOrderId(
         purchase.orderId,
-        lookup.transaction_id
+        lookup.transaction_id,
+        { totalAmount: lookup.total_amount }
       );
-
-      await Purchase.findByIdAndUpdate(purchase._id, {
-        pidx,
-        khaltiStatus: lookup.status,
-        transactionId: lookup.transaction_id,
-      });
 
       if (!result.ok) {
         return res.status(400).json({
@@ -440,6 +478,16 @@ exports.verifyKhaltiPayment = async (req, res) => {
           data: { status: "FAILED", orderId: purchase.orderId },
         });
       }
+
+      await Purchase.findByIdAndUpdate(purchase._id, {
+        pidx,
+        khaltiStatus: lookup.status,
+        transactionId: lookup.transaction_id,
+        paymentMethod: "Khalti",
+        paymentStatus: "PAID",
+        totalAmount: lookup.total_amount ?? purchase.totalAmount ?? purchase.totalPrice,
+        paidAt: new Date(),
+      });
 
       return res.json({
         success: true,
@@ -458,6 +506,9 @@ exports.verifyKhaltiPayment = async (req, res) => {
       paymentStatus,
       khaltiStatus: lookup.status,
       transactionId: lookup.transaction_id,
+      pidx,
+      paymentMethod: "Khalti",
+      totalAmount: lookup.total_amount ?? purchase.totalAmount ?? purchase.totalPrice,
     });
 
     const io = getSocketOrNull();

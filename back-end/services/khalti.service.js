@@ -1,7 +1,7 @@
 const axios = require("axios");
 
 const getKhaltiMode = () =>
-  (process.env.KHALTI_MODE || "sandbox").trim().toLowerCase();
+  (process.env.NODE_ENV || "development").trim().toLowerCase();
 
 const getKhaltiBaseUrl = () =>
   getKhaltiMode() === "production"
@@ -9,10 +9,9 @@ const getKhaltiBaseUrl = () =>
     : "https://dev.khalti.com/api/v2";
 
 const getFrontendBaseUrl = () =>
-  (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
+  (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
 
-const getWebsiteUrl = () =>
-  (process.env.FRONTEND_URL || process.env.BACKEND_URL || "http://localhost:5173").replace(/\/$/, "");
+const getWebsiteUrl = () => getFrontendBaseUrl();
 
 const getAuthHeaders = () => {
   if (!process.env.KHALTI_SECRET) {
@@ -29,29 +28,43 @@ const toPaisa = (amountInRupees) => Math.round(Number(amountInRupees) * 100);
 
 const initiateKhaltiPayment = async (order, user = {}) => {
   const amount = Number(order.totalPrice);
-  if (!Number.isFinite(amount) || amount < 10) {
-    throw new Error("Khalti minimum payment amount is Rs. 10");
+  if (!Number.isFinite(amount) || amount <= 10) {
+    throw new Error("Khalti minimum payment amount is greater than Rs. 10");
   }
 
   const amountInPaisa = toPaisa(amount);
   const returnUrl = `${getFrontendBaseUrl()}/payment/khalti/callback`;
   const websiteUrl = getWebsiteUrl();
+  const customerInfo = {};
+
+  if (user.name || user.fullname) {
+    customerInfo.name = user.name || user.fullname;
+  }
+
+  if (user.email) {
+    customerInfo.email = user.email;
+  }
+
+  if (user.phone) {
+    customerInfo.phone = user.phone;
+  }
+
+  if (!customerInfo.name || !customerInfo.email) {
+    throw new Error("Khalti customer information is missing");
+  }
+
   const payload = {
     return_url: returnUrl,
     website_url: websiteUrl,
     amount: amountInPaisa,
     purchase_order_id: order.orderId,
     purchase_order_name: "MedTrack Medicine Order",
-    customer_info: {
-      name: user.name || "MedTrack Customer",
-      email: user.email || "customer@medtrack.local",
-      phone: user.phone || "9800000000",
-    },
+    customer_info: customerInfo,
   };
 
   const endpoint = `${getKhaltiBaseUrl()}/epayment/initiate/`;
   console.log("[Khalti initiate request]", {
-    KHALTI_MODE: getKhaltiMode(),
+    NODE_ENV: getKhaltiMode(),
     endpoint,
     orderId: order.orderId,
     amountInPaisa,
@@ -84,7 +97,7 @@ const verifyKhaltiPayment = async (pidx) => {
 
   const endpoint = `${getKhaltiBaseUrl()}/epayment/lookup/`;
   console.log("[Khalti lookup request]", {
-    KHALTI_MODE: getKhaltiMode(),
+    NODE_ENV: getKhaltiMode(),
     endpoint,
     pidx,
   });

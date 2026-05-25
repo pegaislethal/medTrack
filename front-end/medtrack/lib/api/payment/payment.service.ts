@@ -184,7 +184,7 @@ export const verifyKhaltiPayment = async (
   );
 };
 
-// Mark a pending order as paid (used for fake-confirm/test flow)
+// Legacy helper for non-Khalti confirmation flows.
 export const confirmPayment = async (
   body: ConfirmPaymentBody
 ): Promise<ConfirmPaymentResponse> => {
