@@ -1,19 +1,102 @@
 "use client";
 
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { verifyKhaltiPayment } from "@/lib/api/payment";
 
-export default function PaymentSuccessPage() {
+type VerificationState = "checking" | "success" | "pending" | "failed";
+
+function PaymentSuccessContent() {
+  const searchParams = useSearchParams();
+  const pidx = searchParams.get("pidx");
+  const callbackStatus = searchParams.get("status");
+  const [state, setState] = useState<VerificationState>(pidx ? "checking" : "success");
+  const [message, setMessage] = useState(
+    pidx ? "Confirming your Khalti payment..." : "Your order was confirmed. You can view it in your purchase history."
+  );
+
+  useEffect(() => {
+    if (!pidx) return;
+
+    const verifyPayment = async () => {
+      try {
+        const response = await verifyKhaltiPayment(pidx, callbackStatus);
+        const status = response.data?.status;
+        const khaltiStatus = response.data?.khaltiStatus || callbackStatus;
+
+        if (response.success && status === "PAID") {
+          setState("success");
+          setMessage("Your Khalti payment was verified. You can view it in your purchase history.");
+          return;
+        }
+
+        if (status === "PENDING") {
+          setState("pending");
+          setMessage(`Your Khalti payment is ${khaltiStatus || "pending"}. Please check again later.`);
+          return;
+        }
+
+        setState("failed");
+        setMessage(`Khalti payment was not completed${khaltiStatus ? `: ${khaltiStatus}` : ""}.`);
+      } catch (err: unknown) {
+        setState("failed");
+        setMessage(
+          err instanceof Error ? err.message : "Khalti payment verification failed."
+        );
+      }
+    };
+
+    verifyPayment();
+  }, [pidx, callbackStatus]);
+
+  const isSuccess = state === "success";
+  const isChecking = state === "checking";
+  const isPending = state === "pending";
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-4">
-      <div className="max-w-md w-full rounded-2xl border border-emerald-200 bg-white p-8 text-center shadow-sm">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-          <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
+      <div
+        className={`max-w-md w-full rounded-2xl border bg-white p-8 text-center shadow-sm ${
+          isSuccess
+            ? "border-emerald-200"
+            : isPending || isChecking
+              ? "border-amber-200"
+              : "border-red-200"
+        }`}
+      >
+        <div
+          className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${
+            isSuccess
+              ? "bg-emerald-100 text-emerald-600"
+              : isPending || isChecking
+                ? "bg-amber-100 text-amber-600"
+                : "bg-red-100 text-red-600"
+          }`}
+        >
+          {isSuccess ? (
+            <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : isChecking ? (
+            <div className="h-7 w-7 rounded-full border-2 border-current border-t-transparent animate-spin" />
+          ) : (
+            <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+          )}
         </div>
-        <h1 className="text-xl font-bold text-slate-900">Payment confirmed</h1>
+        <h1 className="text-xl font-bold text-slate-900">
+          {isSuccess
+            ? "Payment confirmed"
+            : isChecking
+              ? "Verifying payment"
+              : isPending
+                ? "Payment pending"
+                : "Payment not completed"}
+        </h1>
         <p className="mt-2 text-sm text-slate-600">
-          Your order was confirmed. You can view it in your purchase history.
+          {message}
         </p>
         <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
           <Link
@@ -31,5 +114,19 @@ export default function PaymentSuccessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-600">
+          Loading...
+        </div>
+      }
+    >
+      <PaymentSuccessContent />
+    </Suspense>
   );
 }

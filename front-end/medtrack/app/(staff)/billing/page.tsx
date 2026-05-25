@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { getAllMedicines, purchaseMedicine, type Medicine } from "@/lib/api/medicine";
+import { initiateKhaltiPayment } from "@/lib/api/payment";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ShoppingCart, Search, Plus, Minus, X, CheckCircle2, Eye, Receipt } from "lucide-react";
@@ -18,6 +19,7 @@ export default function BillingPage() {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "khalti">("cash");
   
   const [customerInfo, setCustomerInfo] = useState({
     customerName: "",
@@ -134,14 +136,42 @@ export default function BillingPage() {
     setIsCheckingOut(true);
 
     try {
+      if (paymentMethod === "khalti") {
+        if (cart.length !== 1) {
+          alert("Khalti checkout is available for one medicine at a time.");
+          return;
+        }
+
+        if (cartTotal < 10) {
+          alert("Khalti minimum payment amount is Rs. 10.");
+          return;
+        }
+
+        const item = cart[0];
+        const response = await initiateKhaltiPayment({
+          medicine: item._id,
+          quantity: item.cartQuantity,
+          unitPrice: item.price,
+          customerInfo,
+        });
+
+        if (!response.success || !response.data?.payment_url) {
+          throw new Error(response.message || "Khalti payment could not be started.");
+        }
+
+        window.location.href = response.data.payment_url;
+        return;
+      }
+
       for (const item of cart) {
         await purchaseMedicine(item._id, item.cartQuantity, customerInfo);
       }
       setShowCheckoutModal(false);
       setShowReceipt(true);
       fetchMedicines(); // Refresh stock
-    } catch (err: any) {
-      alert("Checkout failed: " + err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Checkout failed";
+      alert("Checkout failed: " + message);
     } finally {
       setIsCheckingOut(false);
     }
@@ -379,9 +409,44 @@ export default function BillingPage() {
              <span className="text-xl font-bold text-indigo-700">Rs {cartTotal.toFixed(2)}</span>
           </div>
 
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">Payment Method</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("cash")}
+                className={`rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                  paymentMethod === "cash"
+                    ? "border-indigo-600 bg-indigo-50 text-indigo-700"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                Cash
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("khalti")}
+                className={`rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                  paymentMethod === "khalti"
+                    ? "border-purple-600 bg-purple-50 text-purple-700"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                Khalti
+              </button>
+            </div>
+            {paymentMethod === "khalti" && cart.length !== 1 && (
+              <p className="text-xs text-amber-700">
+                Khalti checkout currently supports one medicine per payment. Use cash for multi-item orders.
+              </p>
+            )}
+          </div>
+
           <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-2">
             <Button type="button" variant="ghost" onClick={() => setShowCheckoutModal(false)}>Cancel</Button>
-            <Button type="submit" isLoading={isCheckingOut}>Complete Purchase</Button>
+            <Button type="submit" isLoading={isCheckingOut}>
+              {paymentMethod === "khalti" ? "Pay with Khalti" : "Complete Purchase"}
+            </Button>
           </div>
         </form>
       </Modal>

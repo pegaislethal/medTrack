@@ -45,6 +45,14 @@ const purchaseSchema = new mongoose.Schema(
     transactionId: {
       type: String, // refId from eSewa
     },
+    pidx: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    khaltiStatus: {
+      type: String,
+    },
     
     // Customer Info Fields
     customerName: {

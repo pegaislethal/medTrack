@@ -23,12 +23,22 @@ export interface InitiatePaymentBody {
   medicine: string;
   quantity: number;
   unitPrice: number;
+  customerInfo?: {
+    customerName: string;
+    customerAddress: string;
+    customerPhone: string;
+    prescription: string;
+  };
 }
 
 export interface InitiatePaymentData {
   orderId: string;
   amount: number;
-  qrData: string;
+  qrData?: string;
+  pidx?: string;
+  payment_url?: string;
+  expires_at?: string;
+  expires_in?: number;
 }
 
 export interface InitiatePaymentResponse {
@@ -48,6 +58,17 @@ export interface ConfirmPaymentResponse {
   data?: {
     paymentStatus: "PAID" | "PENDING" | "FAILED";
     orderId: string;
+  };
+}
+
+export interface VerifyKhaltiPaymentResponse {
+  success: boolean;
+  message?: string;
+  data?: {
+    status: "PAID" | "PENDING" | "FAILED";
+    khaltiStatus?: string;
+    orderId?: string;
+    transactionId?: string | null;
   };
 }
 
@@ -115,6 +136,51 @@ export const initiatePayment = async (
     headers: getAuthHeader() as HeadersInit,
     body: JSON.stringify(body),
   });
+};
+
+export const initiateKhaltiPayment = async (
+  body: InitiatePaymentBody
+): Promise<InitiatePaymentResponse> => {
+  const token = getToken();
+  if (!token) {
+    throw {
+      status: "error",
+      message: "No authentication token found",
+      statusCode: 401,
+    } as ApiError & { statusCode: number };
+  }
+
+  return apiRequest<InitiatePaymentResponse>(
+    API_ENDPOINTS.PAYMENT.KHALTI_INITIATE,
+    {
+      method: "POST",
+      headers: getAuthHeader() as HeadersInit,
+      body: JSON.stringify(body),
+    }
+  );
+};
+
+export const verifyKhaltiPayment = async (
+  pidx: string,
+  status?: string | null
+): Promise<VerifyKhaltiPaymentResponse> => {
+  const token = getToken();
+  if (!token) {
+    throw {
+      status: "error",
+      message: "No authentication token found",
+      statusCode: 401,
+    } as ApiError & { statusCode: number };
+  }
+
+  return apiRequest<VerifyKhaltiPaymentResponse>(
+    API_ENDPOINTS.PAYMENT.KHALTI_VERIFY,
+    {
+      method: "POST",
+      headers: getAuthHeader() as HeadersInit,
+      body: JSON.stringify({ pidx, status }),
+    }
+  );
 };
 
 // Mark a pending order as paid (used for fake-confirm/test flow)

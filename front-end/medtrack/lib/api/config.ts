@@ -48,6 +48,8 @@ export const API_ENDPOINTS = {
     CONFIG: '/payment/config',
     INITIATE: '/payment/initiate',
     CONFIRM: '/payment/confirm',
+    KHALTI_INITIATE: '/payment/khalti/initiate',
+    KHALTI_VERIFY: '/payment/khalti/verify',
   },
 };
 
