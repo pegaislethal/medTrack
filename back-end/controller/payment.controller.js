@@ -36,6 +36,27 @@ const mapKhaltiStatusToPaymentStatus = (status) => {
   return "FAILED";
 };
 
+const getStartOfToday = () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+};
+
+const getMedicineSnapshot = (medicine) => ({
+  name: medicine.medicineName,
+  price: medicine.price,
+  image: medicine.image || {},
+});
+
+const getUnavailableReason = (medicine) => {
+  if (medicine.isDeleted) return "Medicine is no longer available";
+  if (new Date(medicine.expiryDate) < getStartOfToday()) {
+    return "Medicine has expired";
+  }
+  if (medicine.quantity <= 0) return "Medicine is out of stock";
+  return null;
+};
+
 const confirmPaymentByOrderId = async (
   orderId,
   transactionId,
@@ -71,6 +92,16 @@ const confirmPaymentByOrderId = async (
     return { ok: false, code: "medicine_missing" };
   }
 
+  const unavailableReason = getUnavailableReason(medicine);
+  if (unavailableReason) {
+    await Purchase.findOneAndUpdate({ orderId }, { paymentStatus: "FAILED" });
+    if (io) io.to(orderId).emit("paymentUpdate", { status: "FAILED", orderId });
+    return { ok: false, code: "medicine_unavailable" };
+  }
+
+  const snapshotUpdate =
+    !purchase.name || purchase.price == null ? getMedicineSnapshot(medicine) : {};
+
   if (medicine.quantity < purchase.quantity) {
     await Purchase.findOneAndUpdate({ orderId }, { paymentStatus: "FAILED" });
     if (io) io.to(orderId).emit("paymentUpdate", { status: "FAILED", orderId });
@@ -84,6 +115,7 @@ const confirmPaymentByOrderId = async (
   await Purchase.findOneAndUpdate(
     { orderId },
     {
+      ...snapshotUpdate,
       paymentStatus: "PAID",
       transactionId: transactionId || "N/A",
       totalAmount: settlementTotal,
@@ -174,6 +206,14 @@ exports.initiatePayment = async (req, res) => {
       });
     }
 
+    const unavailableReason = getUnavailableReason(medicine);
+    if (unavailableReason) {
+      return res.status(400).json({
+        success: false,
+        message: unavailableReason,
+      });
+    }
+
     if (medicine.quantity < qty) {
       return res.status(400).json({
         success: false,
@@ -193,6 +233,7 @@ exports.initiatePayment = async (req, res) => {
 
     await Purchase.create({
       medicine: medicine._id,
+      ...getMedicineSnapshot(medicine),
       buyer: buyerId,
       quantity: qty,
       unitPrice: medicine.price,
@@ -244,6 +285,7 @@ exports.initiateKhaltiPayment = async (req, res) => {
     }
 
     let purchase;
+    let medicineForSnapshot = null;
 
     if (existingOrderId) {
       purchase = await Purchase.findOne({ orderId: existingOrderId });
@@ -259,6 +301,22 @@ exports.initiateKhaltiPayment = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: "Order is already paid",
+        });
+      }
+
+      medicineForSnapshot = await Medicine.findById(purchase.medicine);
+      if (!medicineForSnapshot) {
+        return res.status(404).json({
+          success: false,
+          message: "Medicine not found",
+        });
+      }
+
+      const unavailableReason = getUnavailableReason(medicineForSnapshot);
+      if (unavailableReason) {
+        return res.status(400).json({
+          success: false,
+          message: unavailableReason,
         });
       }
     } else {
@@ -277,6 +335,14 @@ exports.initiateKhaltiPayment = async (req, res) => {
         return res.status(404).json({
           success: false,
           message: "Medicine not found",
+        });
+      }
+
+      const unavailableReason = getUnavailableReason(medicine);
+      if (unavailableReason) {
+        return res.status(400).json({
+          success: false,
+          message: unavailableReason,
         });
       }
 
@@ -302,12 +368,14 @@ exports.initiateKhaltiPayment = async (req, res) => {
         });
       }
 
+      medicineForSnapshot = medicine;
       purchase =
         (await Purchase.findOne(
           getPendingKhaltiOrderFilter(buyerId, medicine._id, qty, medicine.price)
         )) ||
         (await Purchase.create({
           medicine: medicine._id,
+          ...getMedicineSnapshot(medicine),
           buyer: buyerId,
           quantity: qty,
           unitPrice: medicine.price,
@@ -322,6 +390,11 @@ exports.initiateKhaltiPayment = async (req, res) => {
           customerPhone: customerInfo.customerPhone,
           prescription: customerInfo.prescription,
         }));
+    }
+
+    if (medicineForSnapshot && (!purchase.name || purchase.price == null)) {
+      purchase.set(getMedicineSnapshot(medicineForSnapshot));
+      await purchase.save();
     }
 
     if (purchase.totalPrice <= 10) {
@@ -471,6 +544,8 @@ exports.verifyKhaltiPayment = async (req, res) => {
           message:
             result.code === "stock"
               ? "Insufficient stock"
+              : result.code === "medicine_unavailable"
+                ? "Medicine is no longer available"
               : "Payment confirm failed",
           code: result.code,
           data: { status: "FAILED", orderId: purchase.orderId },
@@ -626,6 +701,8 @@ exports.confirmPayment = async (req, res) => {
         message:
           result.code === "stock"
             ? "Insufficient stock"
+            : result.code === "medicine_unavailable"
+              ? "Medicine is no longer available"
             : "Payment confirm failed",
         code: result.code,
       });

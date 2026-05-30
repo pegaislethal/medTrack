@@ -5,6 +5,29 @@ const cloudinary = require("../config/cloudinary");
 const fs = require("fs");
 const { getSocketInstance } = require("../config/socket");
 
+const getStartOfToday = () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+};
+
+const getMedicineSnapshot = (medicine) => ({
+  name: medicine.medicineName,
+  price: medicine.price,
+  image: medicine.image || {},
+});
+
+const notDeletedFilter = () => ({ isDeleted: { $ne: true } });
+
+const getUnavailableReason = (medicine) => {
+  if (medicine.isDeleted) return "Medicine is no longer available";
+  if (new Date(medicine.expiryDate) < getStartOfToday()) {
+    return "Medicine has expired";
+  }
+  if (medicine.quantity <= 0) return "Medicine is out of stock";
+  return null;
+};
+
 const createMedicine = async (req, res) => {
   try {
     const {
@@ -88,7 +111,28 @@ const createMedicine = async (req, res) => {
 
 const getAllMedicines = async (req, res) => {
   try {
-    const medicines = await Medicine.find().sort({ createdAt: -1 });
+    const today = getStartOfToday();
+    const status = String(req.query.status || "").toLowerCase();
+    const includeInactive = req.query.includeInactive === "true";
+
+    let query = {
+      ...notDeletedFilter(),
+      expiryDate: { $gte: today },
+      quantity: { $gt: 0 },
+    };
+
+    if (includeInactive || status === "all" || status === "admin") {
+      query = notDeletedFilter();
+    }
+
+    if (status === "expired") {
+      query = {
+        ...notDeletedFilter(),
+        expiryDate: { $lt: today },
+      };
+    }
+
+    const medicines = await Medicine.find(query).sort({ createdAt: -1 });
     res.status(StatusCodes.OK).json({
       success: true,
       message: "Medicines fetched successfully",
@@ -105,7 +149,10 @@ const getAllMedicines = async (req, res) => {
 
 const getMedicineById = async (req, res) => {
   try {
-    const medicine = await Medicine.findById(req.params.id);
+    const medicine = await Medicine.findOne({
+      _id: req.params.id,
+      ...notDeletedFilter(),
+    });
     if (!medicine) {
       return res.status(StatusCodes.NOT_FOUND).json({
         success: false,
@@ -128,10 +175,16 @@ const getMedicineById = async (req, res) => {
 const updateMedicine = async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedMedicine = await Medicine.findByIdAndUpdate(id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    const updateData = { ...req.body };
+    delete updateData.isDeleted;
+    const updatedMedicine = await Medicine.findOneAndUpdate(
+      { _id: id, ...notDeletedFilter() },
+      updateData,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
 
     if (!updatedMedicine) {
       return res.status(StatusCodes.NOT_FOUND).json({
@@ -157,7 +210,7 @@ const updateMedicine = async (req, res) => {
 const deleteMedicine = async (req, res) => {
   try {
     const { id } = req.params;
-    const medicine = await Medicine.findById(id);
+    const medicine = await Medicine.findOne({ _id: id, ...notDeletedFilter() });
 
     if (!medicine) {
       return res.status(StatusCodes.NOT_FOUND).json({
@@ -166,12 +219,8 @@ const deleteMedicine = async (req, res) => {
       });
     }
 
-    // Delete image from cloudinary if exists
-    if (medicine.image?.public_id) {
-      await cloudinary.uploader.destroy(medicine.image.public_id);
-    }
-
-    await medicine.deleteOne();
+    medicine.isDeleted = true;
+    await medicine.save();
 
     res.status(StatusCodes.OK).json({
       success: true,
@@ -215,6 +264,14 @@ const purchaseMedicine = async (req, res) => {
       });
     }
 
+    const unavailableReason = getUnavailableReason(medicine);
+    if (unavailableReason) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: unavailableReason,
+      });
+    }
+
     if (medicine.quantity < requestedQty) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
@@ -227,6 +284,7 @@ const purchaseMedicine = async (req, res) => {
 
     const purchase = await Purchase.create({
       medicine: medicine._id,
+      ...getMedicineSnapshot(medicine),
       buyer: buyerId,
       quantity: requestedQty,
       unitPrice: medicine.price,
@@ -337,7 +395,7 @@ const getPurchaseHistory = async (req, res) => {
     }
 
     const purchases = await Purchase.find(query)
-      .populate("medicine", "medicineName batchNumber price")
+      .populate("medicine", "medicineName batchNumber price image isDeleted expiryDate")
       .populate("buyer", "fullname email")
       .sort({ createdAt: -1 });
 

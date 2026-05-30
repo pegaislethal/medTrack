@@ -16,7 +16,7 @@ export default function AlertsPage() {
   const fetchMedicines = async () => {
     setLoading(true);
     try {
-      const response = await getAllMedicines();
+      const response = await getAllMedicines({ includeInactive: true });
       if (response.success && response.data) {
         setMedicines(Array.isArray(response.data) ? response.data : []);
       }
@@ -30,6 +30,7 @@ export default function AlertsPage() {
   const getAlerts = () => {
     const alerts: any[] = [];
     const now = new Date();
+    now.setHours(0, 0, 0, 0);
     const thirtyDays = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     medicines.forEach((med) => {

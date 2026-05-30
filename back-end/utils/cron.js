@@ -16,7 +16,8 @@ const startCronJobs = () => {
 
       // Find medicines expiring within 30 days
       const expiringMedicines = await Medicine.find({
-        expiryDate: { $lte: thirtyDaysFromNow.toISOString() },
+        isDeleted: { $ne: true },
+        expiryDate: { $lte: thirtyDaysFromNow },
       });
 
       if (expiringMedicines.length > 0) {

@@ -184,7 +184,7 @@ export default function PharmacistsPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-slate-700">Full Name</label>
-            <Input required value={formData.fullname} onChange={e => setFormData({...formData, fullname: e.target.value})} placeholder="Jane Doe" />
+            <Input required value={formData.fullname} onChange={e => setFormData({...formData, fullname: e.target.value})} placeholder="Enter name" />
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-slate-700">Email Address</label>

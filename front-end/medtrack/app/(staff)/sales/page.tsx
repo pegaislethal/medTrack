@@ -51,12 +51,34 @@ export default function SalesPage() {
     fetchSales();
   };
 
+  const getSaleMedicineName = (sale: SalesItem) => {
+    return sale.name || sale.medicine?.medicineName || "Unknown";
+  };
+
+  const getSaleMedicineDisplayName = (sale: SalesItem) => {
+    const name = getSaleMedicineName(sale);
+    const deleted = sale.medicine?.isDeleted;
+    const expiryDate = sale.medicine?.expiryDate;
+
+    if (!expiryDate) return deleted ? `${name} (Deleted)` : name;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expired = new Date(expiryDate) < today;
+
+    if (deleted && expired) return `${name} (Deleted - Was Expired)`;
+    if (deleted) return `${name} (Deleted)`;
+    if (expired) return `${name} (Expired)`;
+    return name;
+  };
+
   const filteredSales = useMemo(() => {
     if (!search) return sales;
     const lowerSearch = search.toLowerCase();
     
     return sales.filter((sale) => {
-      const medicineMatch = sale.medicine?.medicineName?.toLowerCase().includes(lowerSearch);
+      const medicineName = sale.name || sale.medicine?.medicineName || "Unknown";
+      const medicineMatch = medicineName.toLowerCase().includes(lowerSearch);
       const buyerMatch = sale.customerName?.toLowerCase().includes(lowerSearch) || sale.buyer?.fullname?.toLowerCase().includes(lowerSearch);
       return medicineMatch || buyerMatch;
     });
@@ -197,7 +219,7 @@ export default function SalesPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium text-slate-900">{sale.medicine?.medicineName || "Unknown"}</div>
+                    <div className="font-medium text-slate-900">{getSaleMedicineDisplayName(sale)}</div>
                     <div className="text-xs text-slate-500">Batch: {sale.medicine?.batchNumber || "N/A"}</div>
                   </TableCell>
                   <TableCell>

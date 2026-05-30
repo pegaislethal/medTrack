@@ -32,6 +32,10 @@ const medicineSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
     description: {
       type: String,
     },

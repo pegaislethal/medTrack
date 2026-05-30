@@ -267,7 +267,7 @@ const getRecentActivity = async (req, res) => {
     
     // Fetch last 10 purchases
     const recentPurchases = await Purchase.find()
-      .populate("medicine", "medicineName")
+      .populate("medicine", "medicineName isDeleted expiryDate")
       .populate("buyer", "fullname")
       .sort({ createdAt: -1 })
       .limit(10);
@@ -277,12 +277,27 @@ const getRecentActivity = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(10);
       
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const getActivityMedicineName = (purchase) => {
+      const name = purchase.name || purchase.medicine?.medicineName || "Unknown";
+      const deleted = purchase.medicine?.isDeleted;
+      const expired =
+        purchase.medicine?.expiryDate &&
+        new Date(purchase.medicine.expiryDate) < today;
+
+      if (deleted && expired) return `${name} (Deleted - Was Expired)`;
+      if (deleted) return `${name} (Deleted)`;
+      if (expired) return `${name} (Expired)`;
+      return name;
+    };
+
     // Format activities
     const activities = [
       ...recentPurchases.map(p => ({
         _id: p._id,
         type: "SALE",
-        message: `Pharmacist ${p.buyer?.fullname || "Unknown"} sold ${p.quantity}x ${p.medicine?.medicineName || "Unknown"} to ${p.customerName || "Walk-in Customer"}`,
+        message: `Pharmacist ${p.buyer?.fullname || "Unknown"} sold ${p.quantity}x ${getActivityMedicineName(p)} to ${p.customerName || "Walk-in Customer"}`,
         timestamp: p.createdAt,
       })),
       ...recentUsers.map(u => ({

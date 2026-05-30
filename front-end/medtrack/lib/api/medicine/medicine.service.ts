@@ -18,6 +18,7 @@ export interface Medicine {
   price: number;
   expiryDate: string;
   description?: string;
+  isDeleted?: boolean;
   image?: {
     public_id?: string;
     url?: string;
@@ -45,6 +46,11 @@ export interface MedicineResponse {
   data?: Medicine | Medicine[];
 }
 
+export interface GetMedicinesOptions {
+  includeInactive?: boolean;
+  status?: "active" | "all" | "admin" | "expired";
+}
+
 export interface PurchaseResponse {
   success: boolean;
   message: string;
@@ -53,6 +59,12 @@ export interface PurchaseResponse {
     purchase: {
       _id: string;
       medicine: string;
+      name?: string;
+      price?: number;
+      image?: {
+        public_id?: string;
+        url?: string;
+      };
       buyer: string;
       quantity: number;
       unitPrice: number;
@@ -82,6 +94,12 @@ export interface PurchaseAnalyticsResponse {
 
 export interface PurchaseHistoryItem {
   _id: string;
+  name?: string;
+  price?: number;
+  image?: {
+    public_id?: string;
+    url?: string;
+  };
   quantity: number;
   unitPrice: number;
   totalPrice: number;
@@ -90,11 +108,17 @@ export interface PurchaseHistoryItem {
   paymentStatus?: "PENDING" | "PAID" | "FAILED";
   paymentMethod?: string;
   transactionId?: string;
-  medicine: {
+  medicine?: {
     _id: string;
     medicineName: string;
     batchNumber: string;
     price: number;
+    expiryDate?: string;
+    isDeleted?: boolean;
+    image?: {
+      public_id?: string;
+      url?: string;
+    };
   };
   buyer: {
     _id: string;
@@ -147,7 +171,9 @@ const apiRequest = async <T>(
 /**
  * Get all medicines
  */
-export const getAllMedicines = async (): Promise<MedicineResponse> => {
+export const getAllMedicines = async (
+  options: GetMedicinesOptions = {}
+): Promise<MedicineResponse> => {
   const token = getToken();
 
   if (!token) {
@@ -158,7 +184,15 @@ export const getAllMedicines = async (): Promise<MedicineResponse> => {
     } as ApiError & { statusCode: number };
   }
 
-  return apiRequest<MedicineResponse>(API_ENDPOINTS.MEDICINES.GET_ALL, {
+  const params = new URLSearchParams();
+  if (options.status) params.set("status", options.status);
+  if (options.includeInactive) params.set("includeInactive", "true");
+
+  const endpoint = params.toString()
+    ? `${API_ENDPOINTS.MEDICINES.GET_ALL}?${params.toString()}`
+    : API_ENDPOINTS.MEDICINES.GET_ALL;
+
+  return apiRequest<MedicineResponse>(endpoint, {
     method: 'GET',
     headers: getAuthHeader() as HeadersInit,
   });

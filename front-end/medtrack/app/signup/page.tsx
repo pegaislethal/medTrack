@@ -138,7 +138,7 @@ export default function SignupPage() {
                 onChange={(e) => handleChange("name")(e.target.value)}
                 disabled={loading}
                 className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none ring-indigo-100 transition focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                placeholder="Jane Doe"
+                placeholder="Enter your full name"
               />
             </div>
 
@@ -156,7 +156,7 @@ export default function SignupPage() {
                 onChange={(e) => handleChange("email")(e.target.value)}
                 disabled={loading}
                 className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none ring-indigo-100 transition focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                placeholder="you@example.com"
+                placeholder="your@example.com"
               />
             </div>
 

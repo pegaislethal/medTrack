@@ -35,7 +35,7 @@ export default function MedicinesPage() {
   const fetchMedicines = async () => {
     setLoading(true);
     try {
-      const response = await getAllMedicines();
+      const response = await getAllMedicines({ includeInactive: true });
       if (response.success && response.data) {
         setMedicines(Array.isArray(response.data) ? response.data : []);
       }
@@ -112,7 +112,14 @@ export default function MedicinesPage() {
     }
   };
 
+  const isExpired = (date: string) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(date) < today;
+  };
+
   const isExpiringSoon = (date: string) => {
+    if (isExpired(date)) return false;
     return new Date(date) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   };
 
@@ -154,7 +161,11 @@ export default function MedicinesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredMedicines.map((med) => (
+          {filteredMedicines.map((med) => {
+            const expired = isExpired(med.expiryDate);
+            const expiringSoon = isExpiringSoon(med.expiryDate);
+
+            return (
             <div key={med._id} className="bg-white rounded-2xl shadow-sm border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all flex flex-col overflow-hidden">
               {med.image?.url ? (
                 <div className="h-40 w-full bg-slate-100 flex items-center justify-center shrink-0 border-b border-slate-100">
@@ -173,7 +184,13 @@ export default function MedicinesPage() {
                 </div>
                 <div className="flex flex-col gap-2 items-end">
                   <Badge variant="neutral">{med.category}</Badge>
-                  {isExpiringSoon(med.expiryDate) && (
+                  {expired && (
+                    <Badge variant="danger" className="gap-1 font-bold text-[10px] px-1.5 py-0">
+                      <AlertTriangle className="w-3 h-3" />
+                      Expired
+                    </Badge>
+                  )}
+                  {expiringSoon && (
                     <Badge variant="warning" className="gap-1 font-bold text-[10px] px-1.5 py-0">
                       <AlertTriangle className="w-3 h-3" />
                       Expiring
@@ -205,7 +222,7 @@ export default function MedicinesPage() {
                     <Calendar className="w-3 h-3" />
                     Expiry
                   </div>
-                  <span className={`font-bold text-sm ${isExpiringSoon(med.expiryDate) ? 'text-amber-600' : 'text-slate-900'}`}>
+                  <span className={`font-bold text-sm ${expired ? 'text-red-600' : expiringSoon ? 'text-amber-600' : 'text-slate-900'}`}>
                     {new Date(med.expiryDate).toLocaleDateString()}
                   </span>
                 </div>
@@ -228,7 +245,8 @@ export default function MedicinesPage() {
               </div>
             </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       )}
 

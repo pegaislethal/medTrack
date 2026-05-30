@@ -7,6 +7,23 @@ const purchaseSchema = new mongoose.Schema(
       ref: "Medicine",
       required: true,
     },
+    name: {
+      type: String,
+    },
+    price: {
+      type: Number,
+      min: 0,
+    },
+    image: {
+      public_id: {
+        type: String,
+        default: null,
+      },
+      url: {
+        type: String,
+        default: null,
+      },
+    },
     buyer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

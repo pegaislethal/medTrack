@@ -119,7 +119,7 @@ export default function Dashboard() {
   };
 
   const fetchMedicines = async () => {
-    const response = await getAllMedicines();
+    const response = await getAllMedicines({ includeInactive: true });
     if (response.success && response.data) {
       setMedicines(Array.isArray(response.data) ? response.data : []);
     }
