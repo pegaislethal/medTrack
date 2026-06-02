@@ -49,7 +49,7 @@ This document outlines the complete architecture, data flow, and technology stac
 3.  **File Hosting:** The backend uses `multer` to intercept the image and delegates uploading it to `Cloudinary`.
 4.  **Database Storage:** Once Cloudinary returns a secure image URL, the Node.js server saves the full medicine profile into MongoDB via Mongoose.
 
-### C. Purchase & Payment Flow (eSewa Integration)
+### C. Purchase & Payment Flow (Khait Integration)
 1.  **Add to Cart & Checkout:** A user selects a medicine and fills out their shipping details (and uploads a prescription if needed).
 2.  **Order Creation:** The frontend sends a purchase request. The backend creates a **Purchase** record in MongoDB marked as `PENDING`.
 3.  **Real-Time Subcription:** The frontend uses Socket.io to join an "Order Room" (`socket.join(orderId)`) to listen for real-time state changes about this specific transaction.
