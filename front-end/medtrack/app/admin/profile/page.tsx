@@ -51,7 +51,7 @@ export default function AdminProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-slate-50">
+    <div className="min-h-screen bg-linear-to-br from-slate-50 via-indigo-50 to-slate-50">
       {/* Header */}
       <header className="bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -114,7 +114,7 @@ export default function AdminProfilePage() {
                         onClick={() => !isLink && setActiveTab(item.id)}
                       >
                         <svg
-                          className={`w-5 h-5 flex-shrink-0 transition-transform ${isActive ? 'scale-110' : ''}`}
+                          className={`w-5 h-5 shrink-0 transition-transform ${isActive ? 'scale-110' : ''}`}
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -169,7 +169,7 @@ export default function AdminProfilePage() {
                   </h2>
                   <div className="flex flex-col md:flex-row gap-8">
                     {admin.profilePicture?.url && (
-                      <div className="flex-shrink-0">
+                      <div className="shrink-0">
                         <img
                           src={admin.profilePicture.url}
                           alt="Profile"
@@ -208,7 +208,7 @@ export default function AdminProfilePage() {
 
                 {/* Quick Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl shadow-lg p-6 text-white">
+                  <div className="bg-linear-to-br from-indigo-500 to-indigo-600 rounded-2xl shadow-lg p-6 text-white">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-indigo-100 text-sm font-medium">Total Access</p>
@@ -221,7 +221,7 @@ export default function AdminProfilePage() {
                       </div>
                     </div>
                   </div>
-                  <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white">
+                  <div className="bg-linear-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-blue-100 text-sm font-medium">Account Status</p>
@@ -234,7 +234,7 @@ export default function AdminProfilePage() {
                       </div>
                     </div>
                   </div>
-                  <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg p-6 text-white">
+                  <div className="bg-linear-to-br from-green-500 to-green-600 rounded-2xl shadow-lg p-6 text-white">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-green-100 text-sm font-medium">Permissions</p>

@@ -378,7 +378,7 @@ export default function BillingPage() {
                   setCustomerInfo({...customerInfo, customerName: val});
                 }
               }} 
-              placeholder="e.g. John Doe (Letters only)" 
+              placeholder="e.g. Enter your name (Letters only)" 
             />
           </div>
           

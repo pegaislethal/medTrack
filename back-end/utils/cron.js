@@ -80,7 +80,7 @@ const startCronJobs = () => {
     }
   });
 
-  console.log("✅ Cron jobs scheduled.");
+  console.log("Cron jobs scheduled.");
 };
 
 module.exports = { startCronJobs };
