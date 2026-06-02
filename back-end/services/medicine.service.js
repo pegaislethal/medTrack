@@ -19,6 +19,41 @@ const getMedicineSnapshot = (medicine) => ({
 
 const notDeletedFilter = () => ({ isDeleted: { $ne: true } });
 
+const normalizeBatchNumber = (batchNumber) =>
+  batchNumber == null ? "" : String(batchNumber).trim().toUpperCase();
+
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const buildBatchNumberFilter = (batchNumber) => ({
+  batchNumber: new RegExp(`^${escapeRegExp(batchNumber)}$`, "i"),
+});
+
+const isDuplicateBatchNumberError = (error) =>
+  error?.code === 11000 &&
+  (error?.keyPattern?.batchNumber || error?.keyValue?.batchNumber);
+
+const sendMedicineWriteError = (res, error, action) => {
+  if (isDuplicateBatchNumberError(error)) {
+    return res.status(StatusCodes.CONFLICT).json({
+      success: false,
+      message: "Medicine with this batch number already exists",
+    });
+  }
+
+  if (error?.name === "ValidationError") {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      success: false,
+      message: error.message,
+    });
+  }
+
+  console.error(`Error ${action} medicine:`, error);
+  return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+    success: false,
+    message: "Server error",
+  });
+};
+
 const getUnavailableReason = (medicine) => {
   if (medicine.isDeleted) return "Medicine is no longer available";
   if (new Date(medicine.expiryDate) < getStartOfToday()) {
@@ -41,9 +76,19 @@ const createMedicine = async (req, res) => {
       description,
     } = req.body;
 
-    const existingMedicine = await Medicine.findOne({ batchNumber });
-    if (existingMedicine) {
+    const normalizedBatchNumber = normalizeBatchNumber(batchNumber);
+    if (!normalizedBatchNumber) {
       return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Batch number is required",
+      });
+    }
+
+    const existingMedicine = await Medicine.findOne(
+      buildBatchNumberFilter(normalizedBatchNumber)
+    );
+    if (existingMedicine) {
+      return res.status(StatusCodes.CONFLICT).json({
         success: false,
         message: "Medicine with this batch number already exists",
       });
@@ -82,7 +127,7 @@ const createMedicine = async (req, res) => {
 
     const newMedicine = new Medicine({
       medicineName,
-      batchNumber,
+      batchNumber: normalizedBatchNumber,
       category,
       manufacturer,
       quantity,
@@ -101,11 +146,7 @@ const createMedicine = async (req, res) => {
       data: newMedicine,
     });
   } catch (error) {
-    console.error("Error creating medicine:", error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: "Server error",
-    });
+    return sendMedicineWriteError(res, error, "creating");
   }
 };
 
@@ -177,6 +218,31 @@ const updateMedicine = async (req, res) => {
     const { id } = req.params;
     const updateData = { ...req.body };
     delete updateData.isDeleted;
+
+    if (Object.prototype.hasOwnProperty.call(updateData, "batchNumber")) {
+      const normalizedBatchNumber = normalizeBatchNumber(updateData.batchNumber);
+      if (!normalizedBatchNumber) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Batch number is required",
+        });
+      }
+
+      const existingMedicine = await Medicine.findOne({
+        _id: { $ne: id },
+        ...buildBatchNumberFilter(normalizedBatchNumber),
+      });
+
+      if (existingMedicine) {
+        return res.status(StatusCodes.CONFLICT).json({
+          success: false,
+          message: "Medicine with this batch number already exists",
+        });
+      }
+
+      updateData.batchNumber = normalizedBatchNumber;
+    }
+
     const updatedMedicine = await Medicine.findOneAndUpdate(
       { _id: id, ...notDeletedFilter() },
       updateData,
@@ -199,11 +265,7 @@ const updateMedicine = async (req, res) => {
       data: updatedMedicine,
     });
   } catch (error) {
-    console.error("Error updating medicine:", error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: "Server error",
-    });
+    return sendMedicineWriteError(res, error, "updating");
   }
 };
 
@@ -241,6 +303,13 @@ const purchaseMedicine = async (req, res) => {
     const requestedQty = Number(req.body.quantity);
     const { customerName, customerAddress, customerPhone, prescription } = req.body;
     const buyerId = req.user?.userId || req.userId || req.user?.id;
+
+    if (req.user?.role === "admin") {
+      return res.status(StatusCodes.FORBIDDEN).json({
+        success: false,
+        message: "Admins cannot complete customer purchases from this flow",
+      });
+    }
 
     if (!Number.isInteger(requestedQty) || requestedQty <= 0) {
       return res.status(StatusCodes.BAD_REQUEST).json({

@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { getAllMedicines, createMedicine, updateMedicine, deleteMedicine, type Medicine } from "@/lib/api/medicine";
+import { getAllMedicines, createMedicine, updateMedicine, deleteMedicine, type CreateMedicineRequest, type Medicine } from "@/lib/api/medicine";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
-import { Plus, Edit2, Trash2, Filter, AlertTriangle, Package, Calendar } from "lucide-react";
+import { Plus, Edit2, Trash2, AlertTriangle, Package, Calendar } from "lucide-react";
 
 export default function MedicinesPage() {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -15,6 +15,7 @@ export default function MedicinesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedMedId, setSelectedMedId] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     medicineName: "",
@@ -59,6 +60,7 @@ export default function MedicinesPage() {
   const handleOpenAddModal = () => {
     setIsEditMode(false);
     setSelectedMedId(null);
+    setFormError(null);
     setFormData({
       medicineName: "", batchNumber: "", category: "", 
       manufacturer: "", quantity: 0, price: 0, 
@@ -70,6 +72,7 @@ export default function MedicinesPage() {
   const handleOpenEditModal = (med: Medicine) => {
     setIsEditMode(true);
     setSelectedMedId(med._id);
+    setFormError(null);
     setFormData({
       medicineName: med.medicineName,
       batchNumber: med.batchNumber,
@@ -97,18 +100,46 @@ export default function MedicinesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+
+    const normalizedBatchNumber = formData.batchNumber.trim().toUpperCase();
+    const duplicateMedicine = medicines.find(
+      (medicine) =>
+        medicine.batchNumber.trim().toUpperCase() === normalizedBatchNumber &&
+        medicine._id !== selectedMedId
+    );
+
+    if (duplicateMedicine) {
+      setFormError("Medicine with this batch number already exists.");
+      return;
+    }
+
+    const payload: CreateMedicineRequest = {
+      ...formData,
+      medicineName: formData.medicineName.trim(),
+      batchNumber: normalizedBatchNumber,
+      category: formData.category.trim(),
+      manufacturer: formData.manufacturer.trim(),
+      description: formData.description.trim(),
+    };
+
     try {
-      // In production, we would handle File uploads too, but this hits the basic requirements.
       if (isEditMode && selectedMedId) {
-        await updateMedicine(selectedMedId, formData);
+        await updateMedicine(selectedMedId, payload);
       } else {
-        await createMedicine(formData as any);
+        await createMedicine(payload);
       }
       setIsModalOpen(false);
       fetchMedicines();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      alert(err.message || "Failed to save medicine");
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" && err !== null && "message" in err
+            ? String((err as { message?: unknown }).message)
+            : "Failed to save medicine";
+      setFormError(message);
     }
   };
 
@@ -257,6 +288,13 @@ export default function MedicinesPage() {
         maxWidth="lg"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
+          {formError && (
+            <div className="flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>{formError}</span>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">Medicine Name</label>

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -8,7 +8,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
   Cell
 } from "recharts";
 import { TrendingUp, PackageSearch } from "lucide-react";
@@ -34,7 +33,25 @@ interface TopMedicinesChartProps {
   data: { name: string; sold: number }[];
 }
 
+const CHART_HEIGHT = 300;
+
 export default function TopMedicinesChart({ data }: TopMedicinesChartProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    const updateWidth = () => setContainerWidth(element.clientWidth);
+    updateWidth();
+
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, []);
+
   if (!data || data.length === 0) {
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 w-full h-[360px] flex flex-col items-center justify-center text-slate-500">
@@ -49,6 +66,7 @@ export default function TopMedicinesChart({ data }: TopMedicinesChartProps) {
 
   // Calculate dynamic width to prevent "glitchy" compression
   const dynamicMinWidth = Math.max(500, data.length * 100);
+  const chartWidth = Math.max(containerWidth, dynamicMinWidth);
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 w-full flex flex-col h-[420px]">
@@ -62,36 +80,34 @@ export default function TopMedicinesChart({ data }: TopMedicinesChartProps) {
         </div>
       </div>
 
-      <div className="flex-1 w-full overflow-x-auto custom-scrollbar pb-2">
+      <div ref={containerRef} className="flex-1 w-full overflow-x-auto custom-scrollbar pb-2">
         <div 
-          style={{ minWidth: `${dynamicMinWidth}px` }} 
-          className="h-full w-full relative min-h-[300px]"
+          style={{ width: `${chartWidth}px`, minWidth: `${dynamicMinWidth}px`, height: `${CHART_HEIGHT}px` }}
+          className="relative"
         >
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis 
-                dataKey="name" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: '#64748b', fontSize: 11, fontWeight: '600' }}
-                dy={15}
-              />
-              <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: '#64748b', fontSize: 11, fontWeight: '600' }}
-                dx={-8}
-                width={45}
-              />
-              <Tooltip cursor={{ fill: '#f8fafc' }} content={<CustomTooltip />} />
-              <Bar dataKey="sold" radius={[6, 6, 0, 0]} maxBarSize={50}>
-                {data.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <BarChart width={chartWidth} height={CHART_HEIGHT} data={data} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+            <XAxis 
+              dataKey="name" 
+              axisLine={false} 
+              tickLine={false} 
+              tick={{ fill: '#64748b', fontSize: 11, fontWeight: '600' }}
+              dy={15}
+            />
+            <YAxis 
+              axisLine={false} 
+              tickLine={false} 
+              tick={{ fill: '#64748b', fontSize: 11, fontWeight: '600' }}
+              dx={-8}
+              width={45}
+            />
+            <Tooltip cursor={{ fill: '#f8fafc' }} content={<CustomTooltip />} />
+            <Bar dataKey="sold" radius={[6, 6, 0, 0]} maxBarSize={50}>
+              {data.map((_, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Bar>
+          </BarChart>
         </div>
       </div>
 

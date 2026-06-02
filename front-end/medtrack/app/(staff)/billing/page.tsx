@@ -5,8 +5,10 @@ import { getAllMedicines, purchaseMedicine, type Medicine } from "@/lib/api/medi
 import { initiateKhaltiPayment } from "@/lib/api/payment";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { ShoppingCart, Search, Plus, Minus, X, CheckCircle2, Eye, Receipt } from "lucide-react";
+import { ShoppingCart, Plus, Minus, X, CheckCircle2, Eye, Receipt, ShieldCheck, History } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
+import { getUser } from "@/lib/utils/token";
+import Link from "next/link";
 
 interface CartItem extends Medicine {
   cartQuantity: number;
@@ -20,6 +22,8 @@ export default function BillingPage() {
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "khalti">("cash");
+  const [roleChecked, setRoleChecked] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   
   const [customerInfo, setCustomerInfo] = useState({
     customerName: "",
@@ -32,7 +36,14 @@ export default function BillingPage() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   useEffect(() => {
-    fetchMedicines();
+    const user = getUser();
+    const adminUser = user?.role === "admin";
+    setIsAdmin(adminUser);
+    setRoleChecked(true);
+
+    if (!adminUser) {
+      fetchMedicines();
+    }
   }, []);
 
   const fetchMedicines = async () => {
@@ -104,12 +115,21 @@ export default function BillingPage() {
 
   const openCheckout = () => {
     if (cart.length === 0) return;
+    if (isAdmin) {
+      alert("Admin accounts can review sales, but customer checkout is reserved for pharmacist accounts.");
+      return;
+    }
     setShowCheckoutModal(true);
   };
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) return;
+
+    if (isAdmin) {
+      alert("Admin accounts can review sales, but customer checkout is reserved for pharmacist accounts.");
+      return;
+    }
     
     // Validation
     const nameRegex = /^[a-zA-Z\s]{3,50}$/;
@@ -188,6 +208,49 @@ export default function BillingPage() {
     setCustomerInfo({ customerName: "", customerAddress: "", customerPhone: "", prescription: "" });
     setShowReceipt(false);
   };
+
+  if (!roleChecked) {
+    return (
+      <div className="h-[calc(100vh-8rem)] flex items-center justify-center">
+        <div className="animate-pulse flex items-center justify-center gap-2">
+          <span className="w-4 h-4 rounded-full bg-slate-200"></span>
+          <span className="w-4 h-4 rounded-full bg-slate-200"></span>
+          <span className="w-4 h-4 rounded-full bg-slate-200"></span>
+        </div>
+      </div>
+    );
+  }
+
+  if (isAdmin) {
+    return (
+      <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 max-w-xl w-full text-center">
+          <div className="w-16 h-16 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-5">
+            <ShieldCheck className="w-8 h-8" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900">Admin Checkout Disabled</h1>
+          <p className="text-sm text-slate-500 mt-2">
+            Customer checkout is reserved for pharmacist accounts. Admins can review completed payments and sales records.
+          </p>
+          <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+            <Link
+              href="/sales"
+              className="inline-flex items-center justify-center gap-2 h-10 px-4 py-2 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors"
+            >
+              <History className="w-4 h-4" />
+              View Sales
+            </Link>
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center h-10 px-4 py-2 rounded-xl border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors"
+            >
+              Back to Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col lg:flex-row gap-6">

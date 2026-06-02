@@ -1,6 +1,6 @@
 const adminService = require("../services/admin.service");
 
-// Controllers are now thin wrappers delegating to the service layer.
+
 // This keeps HTTP concerns here and business logic in `services`.
 
 const registerAdmin = (req, res) => adminService.registerAdmin(req, res);

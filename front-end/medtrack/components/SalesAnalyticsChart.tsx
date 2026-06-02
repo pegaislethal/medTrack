@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
   Area,
   AreaChart,
 } from "recharts";
@@ -67,8 +66,26 @@ const CustomizedDot = (props: any) => {
   return null;
 };
 
+const CHART_HEIGHT = 350;
+const MIN_CHART_WIDTH = 640;
+
 export default function SalesAnalyticsChart({ history }: SalesAnalyticsChartProps) {
   const [timeframe, setTimeframe] = useState<"daily" | "weekly" | "monthly">("daily");
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    const updateWidth = () => setContainerWidth(element.clientWidth);
+    updateWidth();
+
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, []);
 
   const chartData = useMemo<(DailyDataPoint | WeeklyDataPoint | MonthlyDataPoint)[]>(() => {
     if (!history || !Array.isArray(history)) return [];
@@ -165,6 +182,7 @@ export default function SalesAnalyticsChart({ history }: SalesAnalyticsChartProp
 
   // Calculate dynamic width to prevent "glitchy" compression
   const dynamicMinWidth = timeframe === "daily" ? 1000 : timeframe === "monthly" ? 1200 : 0;
+  const chartWidth = Math.max(containerWidth, dynamicMinWidth || MIN_CHART_WIDTH);
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 w-full transition-all duration-300">
@@ -195,55 +213,53 @@ export default function SalesAnalyticsChart({ history }: SalesAnalyticsChartProp
         </div>
       </div>
 
-      <div className="w-full overflow-x-auto custom-scrollbar pb-4">
+      <div ref={containerRef} className="w-full overflow-x-auto custom-scrollbar pb-4">
         <div 
-          style={{ minWidth: dynamicMinWidth ? `${dynamicMinWidth}px` : '100%' }} 
-          className="h-[350px] w-full relative"
+          style={{ width: `${chartWidth}px`, minWidth: dynamicMinWidth ? `${dynamicMinWidth}px` : `${MIN_CHART_WIDTH}px`, height: `${CHART_HEIGHT}px` }}
+          className="relative"
         >
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 20 }}>
-              <defs>
-                <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis 
-                dataKey="name" 
-                type="category"
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: '#64748b', fontSize: 11, fontWeight: '600' }} 
-                dy={15}
-                interval={timeframe === "daily" ? 1 : 0}
-              />
-              <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: '#64748b', fontSize: 11, fontWeight: '600' }}
-                tickFormatter={(value) => value >= 1000 ? `Rs ${value / 1000}k` : `Rs ${value}`}
-                dx={-8}
-                width={65}
-              />
-              <Tooltip 
-                content={<CustomTooltip />} 
-                cursor={{ stroke: '#4f46e5', strokeWidth: 1.5, strokeDasharray: '5 5', opacity: 0.5 }} 
-              />
-              <Area
-                key={timeframe}
-                type="monotone"
-                dataKey="sales"
-                stroke="#4f46e5"
-                strokeWidth={3}
-                fillOpacity={1}
-                fill="url(#colorSales)"
-                activeDot={<CustomizedDot />}
-                dot={<CustomizedDot />}
-                animationDuration={1500}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          <AreaChart width={chartWidth} height={CHART_HEIGHT} data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 20 }}>
+            <defs>
+              <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.15} />
+                <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+            <XAxis 
+              dataKey="name" 
+              type="category"
+              axisLine={false} 
+              tickLine={false} 
+              tick={{ fill: '#64748b', fontSize: 11, fontWeight: '600' }} 
+              dy={15}
+              interval={timeframe === "daily" ? 1 : 0}
+            />
+            <YAxis 
+              axisLine={false} 
+              tickLine={false} 
+              tick={{ fill: '#64748b', fontSize: 11, fontWeight: '600' }}
+              tickFormatter={(value) => value >= 1000 ? `Rs ${value / 1000}k` : `Rs ${value}`}
+              dx={-8}
+              width={65}
+            />
+            <Tooltip 
+              content={<CustomTooltip />} 
+              cursor={{ stroke: '#4f46e5', strokeWidth: 1.5, strokeDasharray: '5 5', opacity: 0.5 }} 
+            />
+            <Area
+              key={timeframe}
+              type="monotone"
+              dataKey="sales"
+              stroke="#4f46e5"
+              strokeWidth={3}
+              fillOpacity={1}
+              fill="url(#colorSales)"
+              activeDot={<CustomizedDot />}
+              dot={<CustomizedDot />}
+              animationDuration={1500}
+            />
+          </AreaChart>
         </div>
       </div>
 

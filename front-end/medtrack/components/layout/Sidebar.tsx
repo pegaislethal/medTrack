@@ -20,18 +20,20 @@ export function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [role, setRole] = useState<string | null>(null);
+  const [roleChecked, setRoleChecked] = useState(false);
 
   React.useEffect(() => {
     const user = getUser();
     if (user && user.role) {
       setRole(user.role);
     }
+    setRoleChecked(true);
   }, []);
 
   const links = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Medicines", href: "/medicines", icon: Pill },
-    { name: "Billing", href: "/billing", icon: ShoppingCart },
+    ...(roleChecked && role !== "admin" ? [{ name: "Billing", href: "/billing", icon: ShoppingCart }] : []),
     { name: "Sales", href: "/sales", icon: History },
     // Only show Pharmacists if admin
     ...(role === "admin" ? [{ name: "Pharmacists", href: "/pharmacists", icon: Users }] : []),
